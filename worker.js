@@ -6,7 +6,7 @@ import { onRequestGet as adminMe } from './functions/api/admin/me.js';
 import { onRequestPut as adminPassword } from './functions/api/admin/password.js';
 import { onRequestPut as adminUsername } from './functions/api/admin/username.js';
 import { onRequestPost as adminProductCreate } from './functions/api/admin/product.js';
-import { onRequestDelete as adminProductDelete } from './functions/api/admin/product/[id].js';
+import { onRequestPut as adminProductUpdate, onRequestDelete as adminProductDelete } from './functions/api/admin/product/[id].js';
 import { onRequestPost as adminCategoryCreate } from './functions/api/admin/category.js';
 import { onRequestPut as adminCategoryUpdate, onRequestDelete as adminCategoryDelete } from './functions/api/admin/category/[id].js';
 import { onRequestPost as adminImport } from './functions/api/admin/import.js';
@@ -21,7 +21,7 @@ function contextFor(request, env, executionCtx, params = {}) {
 async function healthHandler(context) {
   return new Response(JSON.stringify({
     ok: true,
-    build: 'foxshop-auth-webcrypto-v5',
+    build: 'foxshop-media-edit-v7',
     d1: !!context.env.DB,
     webCrypto: !!globalThis.crypto?.subtle,
     pbkdf2: typeof crypto?.subtle?.deriveBits === 'function',
@@ -53,6 +53,7 @@ function matchApi(url, request) {
   if (p === '/api/admin/upload-image' && method === 'POST') return [adminUploadImage, {}];
 
   let m = p.match(/^\/api\/admin\/product\/([^/]+)$/);
+  if (m && method === 'PUT') return [adminProductUpdate, { id: decodeURIComponent(m[1]) }];
   if (m && method === 'DELETE') return [adminProductDelete, { id: decodeURIComponent(m[1]) }];
 
   m = p.match(/^\/api\/admin\/category\/([^/]+)$/);
