@@ -18,8 +18,19 @@ function contextFor(request, env, executionCtx, params = {}) {
   return { request, env, params, waitUntil: executionCtx?.waitUntil?.bind(executionCtx), next: executionCtx?.passThroughOnException?.bind(executionCtx) };
 }
 
-function healthHandler(context) {
-  return new Response(JSON.stringify({ ok: true, d1: !!context.env.DB, webCrypto: !!globalThis.crypto?.subtle }), {
+async function healthHandler(context) {
+  let pbkdf2 = false;
+  let hashMatch = false;
+  let hashError = null;
+  try {
+    const mod = await import('./functions/api/_shared.js');
+    const got = await mod.passwordHash('admin123', 'f31a69ce8aec54ac4f6663adb05ead3e');
+    pbkdf2 = true;
+    hashMatch = got === '8b33a7c02624ca443f6950b64a1dd5e162ad611474c16959160383335550623f';
+  } catch (e) {
+    hashError = String(e?.message || e);
+  }
+  return new Response(JSON.stringify({ ok: true, d1: !!context.env.DB, webCrypto: !!globalThis.crypto?.subtle, pbkdf2, hashMatch, ...(hashError ? { hashError } : {}) }), {
     status: 200,
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
   });
