@@ -399,7 +399,7 @@ function renderCartDrawer() {
 
   container.innerHTML = cart.map(item => `
     <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200/70">
-      <img src="${item.image}" alt="${escapeHtml(item.name)}" class="w-14 h-14 object-contain rounded-xl bg-white p-1 border border-slate-200">
+      <img src="${item.image}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" class="w-14 h-14 object-contain rounded-xl bg-white p-1 border border-slate-200">
       <div class="flex-1 min-w-0">
         <h4 class="font-bold text-xs text-slate-800 line-clamp-1">${escapeHtml(item.name)}</h4>
         <p class="text-xs font-black text-orange-600 mt-1">${formatPrice(item.price)} <span class="text-[10px] font-normal text-slate-500">تومان</span></p>
@@ -1275,7 +1275,7 @@ function renderAdminTabContent() {
                   <div class="flex items-center gap-3">
                     <div class="w-12 h-12 rounded-xl overflow-hidden bg-white border border-slate-200 relative shrink-0 shadow-sm">
                       ${cat.image ? `
-                        <img src="${cat.image}" class="w-full h-full object-cover" alt="${escapeHtml(cat.name)}">
+                        <img src="${cat.image}" class="w-full h-full object-cover" alt="${escapeHtml(cat.name)}" loading="lazy" decoding="async">
                       ` : `
                         <div class="w-full h-full bg-gradient-to-br ${cat.color || 'from-orange-500 to-amber-500'} flex items-center justify-center text-white">
                           <i class="fa-solid ${cat.icon || 'fa-paw'} text-base"></i>
@@ -1469,7 +1469,7 @@ function renderAdminProductsRows(productList) {
   return productList.map(prod => `
     <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-orange-50/40 rounded-xl border border-slate-200 text-xs transition">
       <div class="flex items-center gap-2.5">
-        <img src="${prod.image}" class="w-10 h-10 object-contain rounded-lg bg-white border border-slate-200 p-0.5 shrink-0" alt="${escapeHtml(prod.name)}">
+        <img src="${prod.image}" class="w-10 h-10 object-contain rounded-lg bg-white border border-slate-200 p-0.5 shrink-0" alt="${escapeHtml(prod.name)}" loading="lazy" decoding="async">
         <div>
           <p class="font-bold text-slate-800 line-clamp-1 max-w-[240px] sm:max-w-xs">${escapeHtml(prod.name)}</p>
           <div class="flex items-center gap-2 mt-0.5 text-[10px] text-slate-500">
@@ -1876,7 +1876,7 @@ if (typeof window !== "undefined") {
         pattern.className = 'fox-cat-pattern';
         pattern.setAttribute('aria-hidden', 'true');
         const icons = ['🐱','🐾','😺','🐾','🐱','🐾','😸'];
-        const count = isTouchOrMobile ? 25 : 35;
+        const count = isTouchOrMobile ? 12 : 24;
         for (let i = 0; i < count; i++) {
           const span = document.createElement('span');
           span.textContent = icons[i % icons.length];
@@ -1887,7 +1887,15 @@ if (typeof window !== "undefined") {
 
       const header = document.querySelector('header.sticky');
       if (header) {
-        const syncHeader = () => header.classList.toggle('is-scrolled', window.scrollY > 10);
+        let headerTick = false;
+        const syncHeader = () => {
+          if (headerTick) return;
+          headerTick = true;
+          requestAnimationFrame(() => {
+            header.classList.toggle('is-scrolled', window.scrollY > 10);
+            headerTick = false;
+          });
+        };
         syncHeader();
         window.addEventListener('scroll', syncHeader, { passive: true });
       }
