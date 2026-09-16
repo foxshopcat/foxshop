@@ -1,7 +1,10 @@
 const SESSION_DAYS = 7;
 const SESSION_COOKIE = 'foxshop_session';
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
-const PBKDF2_ITERATIONS = 120000;
+// Cloudflare Workers production caps WebCrypto PBKDF2 at 100,000 iterations.
+// Keep this at the platform ceiling so production login does not throw.
+const PBKDF2_ITERATIONS = 100000;
+const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
 
 export function json(data, status = 200, extra = {}) {
