@@ -627,3 +627,134 @@ input[type=number]::-webkit-outer-spin-button {
   position: relative;
   z-index: 1;
 }
+
+
+/* =========================================================
+   FoxShop V6 — Mobile performance pass
+   No visual redesign on desktop; touch devices get cheaper paint/compositing.
+   ========================================================= */
+@media (pointer: coarse), (max-width: 768px) {
+  html { scroll-behavior: auto !important; }
+
+  /* Turn off all decorative motion on touch devices. */
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* Tailwind's runtime animation utilities. */
+  .animate-bounce,
+  .animate-pulse,
+  .animate-spin,
+  .animate-ping,
+  .animate-float,
+  .pulse-glow,
+  .logo-tap { animation: none !important; }
+
+  /* Backdrop filters are one of the most expensive effects on mid-range phones. */
+  .glass-nav,
+  .glass-card,
+  .fox-cat-corner,
+  #fox-product-loader,
+  [class*="backdrop-blur"],
+  [style*="backdrop-filter"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Fixed decorative layers should not force continuous compositing. */
+  body::before { display: none !important; }
+  body::after {
+    width: 42px !important;
+    height: 42px !important;
+    left: 10px !important;
+    bottom: 10px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 6px 16px rgba(87,44,17,.07) !important;
+    background: rgba(255,255,255,.90) !important;
+  }
+  .fox-cat-corner {
+    width: 46px !important;
+    height: 46px !important;
+    top: 82px !important;
+    left: 10px !important;
+    border-radius: 14px !important;
+    box-shadow: 0 6px 16px rgba(87,44,17,.07) !important;
+    background: rgba(255,255,255,.92) !important;
+  }
+
+  /* Static emoji wallpaper: fewer nodes, lower opacity, no filter. */
+  /* Keep the emoji wallpaper above the body background but behind real UI. */
+  .fox-cat-pattern {
+    position: absolute !important;
+    z-index: 0 !important;
+    top: 76px !important;
+    bottom: auto !important;
+    height: 760px !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-auto-rows: 150px !important;
+    opacity: .055 !important;
+    contain: strict !important;
+  }
+  .fox-cat-pattern span { filter: none !important; font-size: 21px !important; }
+
+  /* Avoid painting/hit-testing off-screen product content. */
+  #home-featured-grid > div,
+  #home-bestseller-grid > div,
+  #catalog-products-grid > div,
+  #home-categories-container > a,
+  .product-card-item {
+    content-visibility: auto;
+    contain-intrinsic-size: 330px 360px;
+    contain: layout paint;
+    box-shadow: 0 4px 14px rgba(87,44,17,.045) !important;
+  }
+
+  /* Remove GPU-heavy filters/shadows on product images. */
+  .product-card-item img,
+  #home-featured-grid img,
+  #home-bestseller-grid img,
+  #catalog-products-grid img,
+  .drop-shadow,
+  [class*="drop-shadow"] {
+    filter: none !important;
+  }
+
+  /* The animated ribbon/shimmer is purely decorative. */
+  body > div:first-child,
+  body > div:first-child::after {
+    animation: none !important;
+    background-size: 100% 100% !important;
+  }
+
+  /* Don't animate the hero or make its shadow excessively large. */
+  main > div:first-child.rounded-3xl {
+    box-shadow: 0 12px 30px rgba(213,83,9,.11) !important;
+  }
+  main > div:first-child.rounded-3xl::after { animation: none !important; }
+
+  /* Page content sits above the decorative wallpaper. */
+  header, main, footer, body > div:first-child {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Modal/drawer backdrops become a cheap solid translucent layer. */
+  #product-detail-modal,
+  #admin-portal-modal,
+  #rubika-order-modal,
+  #cart-drawer,
+  #mobile-menu {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: rgba(15,23,42,.62) !important;
+  }
+}
+
+/* Prefer a system fallback while the remote web font is unavailable. */
+@font-face {
+  font-family: 'Vazirmatn Fallback';
+  src: local('Vazirmatn'), local('Tahoma'), local('Arial');
+  font-display: swap;
+}
