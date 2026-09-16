@@ -1,8 +1,16 @@
+# Never upload Cloudflare/server project files as public static assets.
+node_modules/**
+.wrangler/**
+.git/**
 worker.js
 wrangler.jsonc
 package.json
+package-lock.json
+npm-shrinkwrap.json
+pnpm-lock.yaml
+yarn.lock
 cloudflare-d1-schema.sql
-CLOUDFLARE-SETUP-NO-R2.txt
+SETUP-FOR-CLOUDFLARE-WORKER.txt
 README.md
 functions/**
 assets/**/.DS_Store
