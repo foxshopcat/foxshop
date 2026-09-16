@@ -35,14 +35,29 @@ export async function randomHex(byteLength = 32) {
   return bytesToHex(bytes);
 }
 
-// Use the native Workers-supported Node.js crypto implementation directly.
-// This avoids the previous runtime problem caused by the asynchronous
-// callback form of pbkdf2. Cloudflare Workers currently supports node:crypto
-// for compatibility dates on/after 2026-08-04.
+// Password hashing uses the Web Crypto API built into Cloudflare Workers.
+// PBKDF2-SHA256 is supported natively by Workers and does not depend on Node.js modules.
 export async function passwordHash(password, saltHex) {
   const salt = hexToBytes(saltHex);
-  const derived = pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 32, 'sha256');
-  return bytesToHex(new Uint8Array(derived));
+  const passwordBytes = new TextEncoder().encode(String(password));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    passwordBytes,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256'
+    },
+    key,
+    256
+  );
+  return bytesToHex(new Uint8Array(bits));
 }
 
 export async function verifyPassword(password, saltHex, expectedHash) {
