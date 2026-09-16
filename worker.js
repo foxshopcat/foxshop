@@ -18,10 +18,18 @@ function contextFor(request, env, executionCtx, params = {}) {
   return { request, env, params, waitUntil: executionCtx?.waitUntil?.bind(executionCtx), next: executionCtx?.passThroughOnException?.bind(executionCtx) };
 }
 
+function healthHandler(context) {
+  return new Response(JSON.stringify({ ok: true, d1: !!context.env.DB, webCrypto: !!globalThis.crypto?.subtle }), {
+    status: 200,
+    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }
+  });
+}
+
 function matchApi(url, request) {
   const p = url.pathname;
   const method = request.method.toUpperCase();
 
+  if (p === '/api/health' && method === 'GET') return [healthHandler, {}];
   if (p === '/api/store' && method === 'GET') return [getStore, {}];
   if (p === '/api/admin/login' && method === 'POST') return [adminLogin, {}];
   if (p === '/api/admin/logout' && method === 'POST') return [adminLogout, {}];
