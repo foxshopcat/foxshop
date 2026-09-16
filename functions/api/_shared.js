@@ -1,14 +1,10 @@
+import * as nodeCrypto from 'node:crypto';
+
 const SESSION_DAYS = 7;
 const SESSION_COOKIE = 'foxshop_session';
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
 const PBKDF2_ITERATIONS = 120000;
 const PBKDF2_BYTES = 32;
-
-function getCrypto() {
-  const c = globalThis.crypto;
-  if (!c || !c.subtle) throw new Error('Web Crypto API is unavailable in this Worker runtime');
-  return c;
-}
 
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -25,13 +21,9 @@ export function bad(message, status = 400, extra = {}) {
   return json({ ok: false, error: message }, status, extra);
 }
 
-function toExactArrayBuffer(typed) {
-  return typed.buffer.slice(typed.byteOffset, typed.byteOffset + typed.byteLength);
-}
-
 function bytesToHex(bytes) {
   let out = '';
-  for (const b of bytes) out += b.toString(16).padStart(2, '0');
+  for (const b of bytes) out += Number(b).toString(16).padStart(2, '0');
   return out;
 }
 
@@ -48,58 +40,34 @@ function hexToBytes(hex) {
 }
 
 export async function sha256Hex(value) {
-  const c = getCrypto();
   const bytes = new TextEncoder().encode(String(value));
-  const digest = await c.subtle.digest('SHA-256', toExactArrayBuffer(bytes));
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
   return bytesToHex(new Uint8Array(digest));
 }
 
 export async function randomHex(byteLength = 32) {
-  const c = getCrypto();
   const bytes = new Uint8Array(byteLength);
-  c.getRandomValues(bytes);
+  globalThis.crypto.getRandomValues(bytes);
   return bytesToHex(bytes);
 }
 
-// PBKDF2-SHA256 using the native Web Crypto API available in Cloudflare Workers.
+// Authentication uses Node's OpenSSL PBKDF2 implementation in Workers.
+// Cloudflare documents node:crypto as fully supported in Workers, and the
+// explicit nodejs_compat flag is enabled in wrangler.jsonc for portability.
 export async function passwordHash(password, saltHex) {
-  const c = getCrypto();
   const salt = hexToBytes(saltHex);
-  const passwordBytes = new TextEncoder().encode(String(password));
-
-  const key = await c.subtle.importKey(
-    'raw',
-    toExactArrayBuffer(passwordBytes),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
-
-  const bits = await c.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: toExactArrayBuffer(salt),
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256'
-    },
-    key,
-    PBKDF2_BYTES * 8
-  );
-
-  return bytesToHex(new Uint8Array(bits));
+  const pass = String(password ?? '');
+  const derived = nodeCrypto.pbkdf2Sync(pass, salt, PBKDF2_ITERATIONS, PBKDF2_BYTES, 'sha256');
+  return bytesToHex(new Uint8Array(derived.buffer, derived.byteOffset, derived.byteLength));
 }
 
 export async function verifyPassword(password, saltHex, expectedHash) {
   const expected = String(expectedHash ?? '').trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(expected)) return false;
-
   const got = (await passwordHash(password, saltHex)).toLowerCase();
-  if (got.length !== expected.length) return false;
-
+  if (!/^[0-9a-f]{64}$/.test(got) || got.length !== expected.length) return false;
   let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
+  for (let i = 0; i < expected.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
 }
 
@@ -133,7 +101,6 @@ export async function createSession(db, adminId) {
 export async function requireAdmin(context) {
   const raw = getCookie(context.request, SESSION_COOKIE);
   if (!raw) return null;
-
   const hash = await sha256Hex(raw);
   const row = await context.env.DB.prepare(`
     SELECT a.id, a.username
@@ -142,7 +109,6 @@ export async function requireAdmin(context) {
     WHERE s.token_hash = ? AND s.expires_at > ?
     LIMIT 1
   `).bind(hash, Date.now()).first();
-
   return row || null;
 }
 
@@ -172,7 +138,6 @@ export async function getStore(db) {
     settings
   };
 }
-
 
 export function cleanString(value, max = 100000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
