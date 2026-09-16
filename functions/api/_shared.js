@@ -172,3 +172,8 @@ export async function getStore(db) {
     settings
   };
 }
+
+
+export function cleanString(value, max = 100000) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
