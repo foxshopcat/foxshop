@@ -1,0 +1,629 @@
+@import url('foxshop-premium-v2.css');
+
+/* =========================================================
+   FoxShop Cat Boutique - Main Stylesheet
+   Persian RTL Layout & Interactive Enhancements
+   Deployable directly on Cloudflare Pages / Static Hosting
+   ========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --color-primary: #ea580c;
+  --color-primary-dark: #c2410c;
+  --color-primary-light: #fff7ed;
+  --color-accent: #ec4899;
+  --color-accent-rose: #f43f5e;
+  --color-slate-dark: #0f172a;
+  --font-vazir: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  font-family: var(--font-vazir);
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  direction: rtl;
+}
+
+body {
+  background-color: #fdfbf7;
+  color: #1e293b;
+  overflow-x: hidden;
+}
+
+/* Subtle Cat Paw SVG Background Pattern */
+.paw-bg {
+  background-color: #fdfbf7;
+  background-image: 
+    radial-gradient(#ea580c 0.5px, transparent 0.5px), 
+    radial-gradient(#ea580c 0.5px, #fdfbf7 0.5px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+}
+
+.cat-paw-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ea580c' fill-opacity='0.035' fill-rule='evenodd'%3E%3Cpath d='M30 30c-2 0-4-2-4-5s2-5 4-5 4 2 4 5-2 5-4 5zm-7-2c-1.5 0-3-1.5-3-3.5s1.5-3.5 3-3.5 3 1.5 3 3.5-1.5 3.5-3 3.5zm14 0c-1.5 0-3-1.5-3-3.5s1.5-3.5 3-3.5 3 1.5 3 3.5-1.5 3.5-3 3.5zm-11 7c-1.2 0-2.5-1-2.5-2.5S24.8 29 26 29s2.5 1 2.5 2.5-1.3 2.5-2.5 2.5zm8 0c-1.2 0-2.5-1-2.5-2.5S29.8 29 31 29s2.5 1 2.5 2.5-1.3 2.5-2.5 2.5z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Glassmorphism Navigation & Surfaces */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(254, 215, 170, 0.5);
+}
+
+/* Custom Scrollbars */
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #ea580c;
+}
+
+/* Number inputs spin button removal */
+input[type=number]::-webkit-inner-spin-button, 
+input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+/* Animations */
+@keyframes floatAnim {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+.animate-float {
+  animation: floatAnim 4s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(234, 88, 12, 0); }
+}
+.pulse-glow {
+  animation: pulseGlow 2.5s infinite;
+}
+
+@keyframes logoTapAnim {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.92) rotate(-3deg); }
+  100% { transform: scale(1); }
+}
+.logo-tap {
+  animation: logoTapAnim 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Toast Notifications */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 380px;
+  padding: 14px 18px;
+  background: #0f172a;
+  color: #ffffff;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+  transform: translateY(20px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.toast.success {
+  border-right: 4px solid #10b981;
+}
+.toast.info {
+  border-right: 4px solid #ea580c;
+}
+.toast.rubika {
+  border-right: 4px solid #9333ea;
+}
+.toast.instagram {
+  border-right: 4px solid #ec4899;
+}
+.toast.error {
+  border-right: 4px solid #ef4444;
+}
+
+/* Product Click Lightweight Logo Reveal Animation */
+#fox-product-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#fox-product-loader.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#fox-product-loader.closing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fox-loader-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 28px;
+  padding: 22px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 20px 45px rgba(234, 88, 12, 0.28), 0 0 0 1px rgba(254, 215, 170, 0.6);
+  transform: scale(0.85);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#fox-product-loader.active .fox-loader-card {
+  transform: scale(1);
+}
+
+.fox-loader-logo-ring {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  padding: 6px;
+  border: 1.5px solid #fed7aa;
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.35);
+  animation: logoPulseAura 1.4s ease-in-out infinite alternate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes logoPulseAura {
+  0% { transform: scale(0.98); box-shadow: 0 0 15px rgba(249, 115, 22, 0.25); }
+  100% { transform: scale(1.04); box-shadow: 0 0 28px rgba(249, 115, 22, 0.55); }
+}
+
+/* Category Card with WebP Background Image */
+.cat-card-bg-img {
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.4s ease;
+}
+.group:hover .cat-card-bg-img {
+  transform: scale(1.08);
+}
+
+/* Line Clamp helper */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* =========================================================
+   Mobile Minimalist Optimizations (Screen < 640px)
+   Matches desktop elegance without giant oversized widgets
+   Completely preserves desktop styles (sm/md/lg unaffected)
+   ========================================================= */
+@media (max-width: 640px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Compact container padding on mobile */
+  main {
+    padding-top: 0.4rem !important;
+    padding-bottom: 1.25rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    row-gap: 1.15rem !important;
+  }
+
+  /* Compact Section Titles & Subtitles */
+  section h2,
+  main h2,
+  .section-header h2 {
+    font-size: 0.95rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em !important;
+  }
+  section p,
+  main .section-header p {
+    font-size: 0.65rem !important;
+    line-height: 1.35 !important;
+  }
+  .section-header a {
+    font-size: 0.65rem !important;
+    padding: 0.2rem 0.5rem !important;
+    border-radius: 0.5rem !important;
+  }
+
+  /* Compact Header */
+  header .max-w-7xl {
+    padding-left: 0.6rem !important;
+    padding-right: 0.6rem !important;
+  }
+  header {
+    border-bottom-width: 1px !important;
+  }
+
+  /* Compact Hero Banner */
+  .relative.rounded-3xl.bg-gradient-to-br {
+    padding: 0.85rem 0.85rem !important;
+    border-radius: 1rem !important;
+    overflow: hidden !important;
+  }
+  .relative.rounded-3xl.bg-gradient-to-br .absolute.opacity-15,
+  .relative.rounded-3xl.bg-gradient-to-br .absolute.opacity-10 {
+    display: none !important; /* Remove giant 9xl watermarks on mobile */
+  }
+  .relative.rounded-3xl.bg-gradient-to-br h1 {
+    font-size: 1.05rem !important;
+    line-height: 1.35 !important;
+    margin-bottom: 0.25rem !important;
+  }
+  .relative.rounded-3xl.bg-gradient-to-br p {
+    font-size: 0.68rem !important;
+    line-height: 1.4 !important;
+    -webkit-line-clamp: 2 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+  .relative.rounded-3xl.bg-gradient-to-br .flex.flex-wrap {
+    gap: 0.4rem !important;
+    margin-top: 0.5rem !important;
+  }
+  .relative.rounded-3xl.bg-gradient-to-br .flex.flex-wrap a {
+    padding: 0.35rem 0.7rem !important;
+    font-size: 0.65rem !important;
+    border-radius: 0.6rem !important;
+    gap: 0.3rem !important;
+  }
+  .relative.rounded-3xl.bg-gradient-to-br .relative.w-64,
+  .relative.rounded-3xl.bg-gradient-to-br .relative.w-72 {
+    display: none !important;
+  }
+
+  /* Trust Props 2-column compact grid */
+  .grid.grid-cols-2.md\:grid-cols-4 {
+    gap: 0.35rem !important;
+  }
+  .grid.grid-cols-2.md\:grid-cols-4 > div {
+    padding: 0.4rem 0.5rem !important;
+    border-radius: 0.75rem !important;
+    gap: 0.4rem !important;
+  }
+  .grid.grid-cols-2.md\:grid-cols-4 > div .w-12 {
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    font-size: 0.75rem !important;
+    border-radius: 0.5rem !important;
+    flex-shrink: 0 !important;
+  }
+  .grid.grid-cols-2.md\:grid-cols-4 > div h4 {
+    font-size: 0.7rem !important;
+    font-weight: 800 !important;
+  }
+  .grid.grid-cols-2.md\:grid-cols-4 > div p {
+    display: none !important;
+  }
+
+  /* Categories 3-column / 2-column compact grid on mobile */
+  #home-categories-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0.4rem !important;
+  }
+  #home-categories-grid > a {
+    padding: 0.5rem 0.35rem !important;
+    border-radius: 0.75rem !important;
+    min-height: 4.8rem !important;
+    aspect-ratio: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+  #home-categories-grid > a .w-8 {
+    width: 1.85rem !important;
+    height: 1.85rem !important;
+    font-size: 0.75rem !important;
+    border-radius: 0.5rem !important;
+    margin: 0 auto !important;
+  }
+  #home-categories-grid > a h3 {
+    font-size: 0.68rem !important;
+    font-weight: 800 !important;
+    margin-top: 0.25rem !important;
+    line-height: 1.2 !important;
+  }
+  #home-categories-grid > a p {
+    font-size: 0.55rem !important;
+    margin-top: 0.1rem !important;
+  }
+
+  /* 2-Column Minimalist Products Grid on Mobile */
+  #home-featured-grid,
+  #home-bestseller-grid,
+  #catalog-products-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.4rem !important;
+  }
+
+  /* Product Card Styling on Mobile */
+  #home-featured-grid > div,
+  #home-bestseller-grid > div,
+  #catalog-products-grid > div,
+  .product-card-item {
+    border-radius: 0.85rem !important;
+    border-width: 1px !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+    overflow: hidden !important;
+  }
+
+  /* Product Card Image on Mobile */
+  #home-featured-grid > div > div:first-of-type,
+  #home-bestseller-grid > div > div:first-of-type,
+  #catalog-products-grid > div > div:first-of-type,
+  .product-card-item .product-img-box {
+    padding: 0.35rem !important;
+    height: 98px !important;
+    aspect-ratio: auto !important;
+  }
+  #home-featured-grid > div > div:first-of-type img,
+  #home-bestseller-grid > div > div:first-of-type img,
+  #catalog-products-grid > div > div:first-of-type img,
+  .product-card-item .product-img-box img {
+    max-height: 86px !important;
+    object-fit: contain !important;
+  }
+
+  /* Discount Badge on Mobile */
+  #home-featured-grid > div > span,
+  #home-bestseller-grid > div > span,
+  #catalog-products-grid > div > span,
+  .product-card-item .discount-tag {
+    top: 0.25rem !important;
+    right: 0.25rem !important;
+    font-size: 0.55rem !important;
+    padding: 0.1rem 0.35rem !important;
+    border-radius: 0.4rem !important;
+  }
+
+  /* Product Card Content Area */
+  #home-featured-grid > div > div:last-of-type,
+  #home-bestseller-grid > div > div:last-of-type,
+  #catalog-products-grid > div > div:last-of-type,
+  .product-card-item .product-info-box {
+    padding: 0.4rem !important;
+    gap: 0.25rem !important;
+  }
+
+  /* Product Title on Mobile */
+  #home-featured-grid > div h3,
+  #home-bestseller-grid > div h3,
+  #catalog-products-grid > div h3,
+  .product-card-item h3 {
+    font-size: 0.68rem !important;
+    line-height: 1.25 !important;
+    height: 1.75rem !important;
+    margin-bottom: 0 !important;
+    -webkit-line-clamp: 2 !important;
+    font-weight: 700 !important;
+  }
+
+  /* Hide verbose description on mobile cards for extreme minimalism */
+  #home-featured-grid > div p,
+  #home-bestseller-grid > div p,
+  #catalog-products-grid > div p,
+  .product-card-item .product-desc {
+    display: none !important;
+  }
+
+  /* Price on Mobile */
+  #home-featured-grid > div .text-base,
+  #home-bestseller-grid > div .text-base,
+  #catalog-products-grid > div .text-base,
+  .product-card-item .price-text {
+    font-size: 0.75rem !important;
+    font-weight: 900 !important;
+  }
+  #home-featured-grid > div .line-through,
+  #home-bestseller-grid > div .line-through,
+  #catalog-products-grid > div .line-through {
+    font-size: 0.58rem !important;
+  }
+
+  /* Buttons Row on Mobile */
+  #home-featured-grid > div .grid.grid-cols-2,
+  #home-bestseller-grid > div .grid.grid-cols-2,
+  #catalog-products-grid > div .grid.grid-cols-2 {
+    gap: 0.25rem !important;
+    padding-top: 0.2rem !important;
+  }
+  #home-featured-grid > div .grid.grid-cols-2 button,
+  #home-bestseller-grid > div .grid.grid-cols-2 button,
+  #catalog-products-grid > div .grid.grid-cols-2 button,
+  #home-featured-grid > div .grid.grid-cols-2 a,
+  #home-bestseller-grid > div .grid.grid-cols-2 a,
+  #catalog-products-grid > div .grid.grid-cols-2 a {
+    height: 27px !important;
+    padding: 0.2rem 0.25rem !important;
+    font-size: 0.62rem !important;
+    border-radius: 0.5rem !important;
+    gap: 0.2rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  #home-featured-grid > div .grid.grid-cols-2 i,
+  #home-bestseller-grid > div .grid.grid-cols-2 i,
+  #catalog-products-grid > div .grid.grid-cols-2 i {
+    font-size: 0.65rem !important;
+  }
+
+  /* Compact Banner (Rubika & Instagram) */
+  .rounded-3xl.p-6.sm\:p-10.bg-gradient-to-r {
+    padding: 0.85rem 0.75rem !important;
+    border-radius: 1rem !important;
+    gap: 0.65rem !important;
+  }
+  .rounded-3xl.p-6.sm\:p-10.bg-gradient-to-r h3 {
+    font-size: 0.95rem !important;
+  }
+  .rounded-3xl.p-6.sm\:p-10.bg-gradient-to-r p {
+    font-size: 0.65rem !important;
+    line-height: 1.35 !important;
+  }
+  .rounded-3xl.p-6.sm\:p-10.bg-gradient-to-r a {
+    padding: 0.45rem 0.85rem !important;
+    font-size: 0.7rem !important;
+    width: 100% !important;
+    border-radius: 0.6rem !important;
+  }
+
+  /* Compact Modals on Mobile */
+  #product-detail-modal > div,
+  #admin-portal-modal > div,
+  #rubika-order-modal > div {
+    padding: 0.85rem !important;
+    border-radius: 1rem !important;
+    max-height: 88vh !important;
+    width: 95vw !important;
+  }
+  #product-detail-modal .aspect-square {
+    height: 120px !important;
+    aspect-ratio: auto !important;
+    padding: 0.35rem !important;
+  }
+  #product-detail-modal h3 {
+    font-size: 0.85rem !important;
+  }
+  #product-detail-modal button {
+    padding: 0.45rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* Drawer on Mobile */
+  #cart-drawer .max-w-md {
+    max-width: 88vw !important;
+    padding: 0.85rem !important;
+  }
+
+  /* Toast Notification */
+  #toast-container {
+    bottom: 10px !important;
+    right: 8px !important;
+    left: 8px !important;
+  }
+  .toast {
+    min-width: unset !important;
+    width: 100% !important;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+    border-radius: 10px !important;
+  }
+}
+
+
+
+/* FoxShop premium cat theme for the admin panel */
+.fox-admin-theme {
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(251,146,60,.10) 0 2px, transparent 3px),
+    radial-gradient(circle at 18% 12%, rgba(251,146,60,.08) 0 7px, transparent 8px),
+    radial-gradient(circle at 86% 80%, rgba(244,114,182,.08) 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 86%, rgba(244,114,182,.06) 0 7px, transparent 8px),
+    linear-gradient(145deg, rgba(255,247,237,.98), rgba(255,255,255,.98) 46%, rgba(253,242,248,.98));
+}
+
+.fox-admin-theme::before {
+  content: "🐾  🐱  🐾  🐱  🐾";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: grid;
+  align-content: space-around;
+  justify-content: space-around;
+  gap: 4rem;
+  padding: 1.2rem;
+  font-size: 1.35rem;
+  line-height: 1;
+  opacity: .055;
+  transform: rotate(-8deg) scale(1.08);
+  pointer-events: none;
+  user-select: none;
+}
+
+.fox-admin-login {
+  box-shadow: 0 24px 70px rgba(120,53,15,.20), 0 6px 24px rgba(244,114,182,.10);
+}
+
+.fox-admin-dashboard {
+  box-shadow: 0 28px 90px rgba(120,53,15,.22), 0 8px 30px rgba(244,114,182,.09);
+}
+
+.fox-admin-theme input,
+.fox-admin-theme select,
+.fox-admin-theme textarea {
+  position: relative;
+  z-index: 1;
+}
+
+.fox-admin-theme button,
+.fox-admin-theme label {
+  position: relative;
+  z-index: 1;
+}
