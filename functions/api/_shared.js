@@ -1,4 +1,4 @@
-import { pbkdf2 as nodePbkdf2 } from 'node:crypto';
+import { pbkdf2Sync } from 'node:crypto';
 
 const SESSION_DAYS = 7;
 const SESSION_COOKIE = 'foxshop_session';
@@ -35,46 +35,21 @@ export async function randomHex(byteLength = 32) {
   return bytesToHex(bytes);
 }
 
-function pbkdf2Node(password, saltHex) {
-  const salt = hexToBytes(saltHex);
-  const passwordBytes = new TextEncoder().encode(password);
-  return new Promise((resolve, reject) => {
-    nodePbkdf2(passwordBytes, salt, PBKDF2_ITERATIONS, 32, 'sha256', (err, derivedKey) => {
-      if (err) return reject(err);
-      resolve(bytesToHex(new Uint8Array(derivedKey)));
-    });
-  });
-}
-
+// Use the native Workers-supported Node.js crypto implementation directly.
+// This avoids the previous runtime problem caused by the asynchronous
+// callback form of pbkdf2. Cloudflare Workers currently supports node:crypto
+// for compatibility dates on/after 2026-08-04.
 export async function passwordHash(password, saltHex) {
-  // Prefer Web Crypto. Fall back to the Workers Node.js crypto implementation
-  // so authentication still works if a deployment/runtime rejects PBKDF2 via
-  // crypto.subtle.
-  try {
-    const salt = hexToBytes(saltHex);
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(password),
-      'PBKDF2',
-      false,
-      ['deriveBits']
-    );
-    const bits = await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
-      key,
-      256
-    );
-    return bytesToHex(new Uint8Array(bits));
-  } catch (webCryptoError) {
-    console.warn('FoxShop WebCrypto PBKDF2 failed; using node:crypto fallback:', webCryptoError);
-    return pbkdf2Node(password, saltHex);
-  }
+  const salt = hexToBytes(saltHex);
+  const derived = pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 32, 'sha256');
+  return bytesToHex(new Uint8Array(derived));
 }
 
 export async function verifyPassword(password, saltHex, expectedHash) {
   const expected = String(expectedHash || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(expected)) return false;
   const got = (await passwordHash(password, saltHex)).toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(expected) || got.length !== expected.length) return false;
+  if (got.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
