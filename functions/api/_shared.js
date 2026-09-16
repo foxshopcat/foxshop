@@ -1,3 +1,5 @@
+import { pbkdf2 as nodePbkdf2 } from 'node:crypto';
+
 const SESSION_DAYS = 7;
 const SESSION_COOKIE = 'foxshop_session';
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
@@ -20,8 +22,10 @@ export async function sha256Hex(value) {
 
 function bytesToHex(bytes) { return [...bytes].map(b => b.toString(16).padStart(2, '0')).join(''); }
 function hexToBytes(hex) {
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  const clean = String(hex || '').trim();
+  if (!/^[0-9a-fA-F]+$/.test(clean) || clean.length % 2 !== 0) throw new Error('Invalid hexadecimal salt');
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
 
@@ -31,18 +35,48 @@ export async function randomHex(byteLength = 32) {
   return bytesToHex(bytes);
 }
 
-export async function passwordHash(password, saltHex) {
+function pbkdf2Node(password, saltHex) {
   const salt = hexToBytes(saltHex);
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, key, 256);
-  return bytesToHex(new Uint8Array(bits));
+  const passwordBytes = new TextEncoder().encode(password);
+  return new Promise((resolve, reject) => {
+    nodePbkdf2(passwordBytes, salt, PBKDF2_ITERATIONS, 32, 'sha256', (err, derivedKey) => {
+      if (err) return reject(err);
+      resolve(bytesToHex(new Uint8Array(derivedKey)));
+    });
+  });
+}
+
+export async function passwordHash(password, saltHex) {
+  // Prefer Web Crypto. Fall back to the Workers Node.js crypto implementation
+  // so authentication still works if a deployment/runtime rejects PBKDF2 via
+  // crypto.subtle.
+  try {
+    const salt = hexToBytes(saltHex);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      key,
+      256
+    );
+    return bytesToHex(new Uint8Array(bits));
+  } catch (webCryptoError) {
+    console.warn('FoxShop WebCrypto PBKDF2 failed; using node:crypto fallback:', webCryptoError);
+    return pbkdf2Node(password, saltHex);
+  }
 }
 
 export async function verifyPassword(password, saltHex, expectedHash) {
-  const got = await passwordHash(password, saltHex);
-  if (got.length !== expectedHash.length) return false;
+  const expected = String(expectedHash || '').trim().toLowerCase();
+  const got = (await passwordHash(password, saltHex)).toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(expected) || got.length !== expected.length) return false;
   let diff = 0;
-  for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ expectedHash.charCodeAt(i);
+  for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
 }
 
