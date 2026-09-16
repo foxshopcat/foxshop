@@ -1,4 +1,4 @@
-import { bad, createSession, json, sessionCookie, verifyPassword, randomHex, sha256Hex } from '../_shared.js';
+import { bad, createSession, getStore, json, randomHex, sha256Hex, sessionCookie, verifyPassword } from '../_shared.js';
 
 const MAX_FAILS = 5;
 const LOCK_MS = 10 * 60 * 1000;
@@ -24,8 +24,8 @@ export async function onRequestPost(context) {
   if (!db) return bad('اتصال Worker به D1 برقرار نیست. Binding با نام DB را بررسی کنید.', 500);
 
   const body = await context.request.json().catch(() => null);
-  const username = String(body?.username || '').trim();
-  const password = String(body?.password || '');
+  const username = String(body?.username ?? '').trim();
+  const password = String(body?.password ?? '');
   if (!username || !password) return bad('نام کاربری و رمز عبور الزامی است.', 400);
 
   try {
@@ -58,12 +58,17 @@ export async function onRequestPost(context) {
       return bad('نام کاربری یا رمز عبور اشتباه است.', 401);
     }
 
-    let valid = false;
+    let valid;
     try {
       valid = await verifyPassword(password, admin.password_salt, admin.password_hash);
     } catch (hashError) {
-      console.error('FoxShop password verification error:', hashError);
-      return bad('خطای فنی در بررسی رمز عبور. لطفاً آخرین Deployment Worker را بررسی کنید.', 500);
+      console.error('FoxShop AUTH_HASH_ERROR', {
+        name: hashError?.name,
+        message: hashError?.message,
+        saltLength: String(admin.password_salt ?? '').length,
+        storedHashLength: String(admin.password_hash ?? '').length
+      });
+      return bad('خطای فنی در بررسی رمز عبور (AUTH_HASH_ERROR).', 500);
     }
 
     if (!valid) {
@@ -85,12 +90,6 @@ export async function onRequestPost(context) {
     } catch (sessionError) {
       console.error('FoxShop session creation error:', sessionError);
       try {
-        await db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
-          token_hash TEXT PRIMARY KEY,
-          admin_id INTEGER NOT NULL,
-          expires_at INTEGER NOT NULL,
-          created_at TEXT NOT NULL
-        )`).run();
         const raw = await randomHex(32);
         const tokenHash = await sha256Hex(raw);
         const expiresAt = now + (7 * 24 * 60 * 60 * 1000);
@@ -103,7 +102,11 @@ export async function onRequestPost(context) {
       }
     }
 
-    return json({ ok: true, username: admin.username }, 200, {
+    let store = null;
+    try { store = await getStore(db); }
+    catch (storeError) { console.error('FoxShop post-login store load error:', storeError); }
+
+    return json({ ok: true, username: admin.username, ...(store ? { store } : {}) }, 200, {
       'Set-Cookie': sessionCookie(session.raw)
     });
   } catch (error) {
