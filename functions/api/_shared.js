@@ -49,9 +49,9 @@ export async function randomHex(byteLength = 32) {
   return bytesToHex(bytes);
 }
 
-// Use the Workers-native Web Crypto API for PBKDF2. This avoids relying on
-// Node/OpenSSL compatibility shims while producing the same PBKDF2-HMAC-SHA256
-// output as the hash stored in D1. PBKDF2 is supported by Workers Web Crypto.
+// Authentication uses the Cloudflare Workers-native Web Crypto PBKDF2 API.
+// This avoids the Node/OpenSSL compatibility layer and matches the PBKDF2-
+// HMAC-SHA256 format already stored in D1.
 export async function passwordHash(password, saltHex) {
   const salt = hexToBytes(saltHex);
   const passBytes = new TextEncoder().encode(String(password ?? ''));
