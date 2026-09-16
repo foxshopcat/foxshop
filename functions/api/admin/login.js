@@ -1,7 +1,15 @@
-import { bad, createSession, getStore, json, randomHex, sha256Hex, sessionCookie, verifyPassword } from '../_shared.js';
+import { bad, createSession, getStore, json, passwordHash, randomHex, sha256Hex, sessionCookie, verifyPassword } from '../_shared.js';
 
 const MAX_FAILS = 5;
 const LOCK_MS = 10 * 60 * 1000;
+
+// One-time migration for the original seed account. The old seed was created
+// with 120,000 PBKDF2 iterations, which current Workers production rejects.
+// Once this exact legacy record is migrated, this branch can never run again.
+const LEGACY_SALT = 'f31a69ce8aec54ac4f6663adb05ead3e';
+const LEGACY_HASH = '8b33a7c02624ca443f6950b64a1dd5e162ad611474c16959160383335550623f';
+const LEGACY_DEFAULT_PASSWORD_SHA256 = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+const CURRENT_DEFAULT_HASH = 'a8884f6291a2fa0d1c8ed3a8b0a13e0d0a94b65e7fca77194d66b1b5cd853688';
 
 async function ensureAuthTables(db) {
   await db.prepare(`CREATE TABLE IF NOT EXISTS login_attempts (
@@ -58,12 +66,33 @@ export async function onRequestPost(context) {
       return bad('نام کاربری یا رمز عبور اشتباه است.', 401);
     }
 
-    let valid;
-    try {
-      valid = await verifyPassword(password, admin.password_salt, admin.password_hash);
-    } catch (hashError) {
-      console.error('FoxShop AUTH_CRYPTO_ERROR:', hashError);
-      return bad('AUTH_CRYPTO_ERROR', 500);
+    let valid = false;
+
+    // Automatic one-time migration of the original admin seed record.
+    // The legacy hash itself cannot be recomputed on Workers because it used
+    // 120,000 PBKDF2 iterations; Workers production rejects values >100,000.
+    if (String(admin.password_hash).toLowerCase() === LEGACY_HASH && String(admin.password_salt).toLowerCase() === LEGACY_SALT) {
+      const passwordDigest = await sha256Hex(password);
+      if (passwordDigest === LEGACY_DEFAULT_PASSWORD_SHA256) {
+        const migratedHash = await passwordHash(password, admin.password_salt);
+        if (migratedHash !== CURRENT_DEFAULT_HASH) {
+          console.error('FoxShop legacy migration produced an unexpected hash.');
+          return bad('AUTH_CRYPTO_ERROR', 500);
+        }
+        await db.prepare('UPDATE admins SET password_hash = ?, updated_at = ? WHERE id = ?')
+          .bind(migratedHash, new Date().toISOString(), admin.id).run();
+        admin.password_hash = migratedHash;
+        valid = true;
+      }
+    }
+
+    if (!valid) {
+      try {
+        valid = await verifyPassword(password, admin.password_salt, admin.password_hash);
+      } catch (hashError) {
+        console.error('FoxShop AUTH_CRYPTO_ERROR:', hashError);
+        return bad('AUTH_CRYPTO_ERROR', 500);
+      }
     }
 
     if (!valid) {
