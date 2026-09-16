@@ -15,29 +15,27 @@
 html { scroll-padding-top: 96px; }
 body {
   color: var(--fox-ink);
-  background-color: #fff8f3;
-  background-image:
-    radial-gradient(900px 520px at 8% 6%, rgba(255, 184, 122, .23), transparent 62%),
-    radial-gradient(780px 500px at 94% 18%, rgba(255, 154, 201, .16), transparent 60%),
-    radial-gradient(760px 520px at 82% 92%, rgba(255, 205, 125, .14), transparent 62%),
-    linear-gradient(180deg, #fffaf6 0%, #fff7f2 48%, #fffaf7 100%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='84' height='84' viewBox='0 0 84 84'%3E%3Cg fill='none' stroke='%23f08a5d' stroke-width='1.35' opacity='.13'%3E%3Cellipse cx='42' cy='46' rx='7' ry='6.2'/%3E%3Cellipse cx='29' cy='35' rx='3.8' ry='5' transform='rotate(-22 29 35)'/%3E%3Cellipse cx='39' cy='30' rx='3.7' ry='5' transform='rotate(-8 39 30)'/%3E%3Cellipse cx='50' cy='30' rx='3.7' ry='5' transform='rotate(8 50 30)'/%3E%3Cellipse cx='61' cy='35' rx='3.8' ry='5' transform='rotate(22 61 35)'/%3E%3C/g%3E%3C/svg%3E");
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
-  background-size: auto, auto, auto, auto, 84px 84px;
-  background-attachment: scroll, scroll, scroll, scroll, fixed;
+  background:
+    radial-gradient(circle at 8% 14%, rgba(255,159,67,.10) 0 2px, transparent 3px),
+    radial-gradient(circle at 91% 23%, rgba(255,95,162,.09) 0 2px, transparent 3px),
+    radial-gradient(circle at 82% 82%, rgba(255,122,24,.08) 0 3px, transparent 4px),
+    linear-gradient(180deg,#fffaf7 0%,#fffdfa 42%,#fff8f4 100%);
 }
 body::before {
-  content: "";
+  content: "🐾   🐱   🐾   🐱";
   position: fixed;
-  inset: 72px 0 0;
-  z-index: 0;
+  inset: 90px -10% auto auto;
+  width: 120%;
+  height: 100vh;
+  z-index: -1;
   pointer-events: none;
   user-select: none;
-  opacity: .42;
-  background:
-    radial-gradient(circle at 14% 20%, rgba(255, 122, 24, .07), transparent 0 16%),
-    radial-gradient(circle at 88% 35%, rgba(255, 95, 162, .055), transparent 0 18%),
-    radial-gradient(circle at 72% 84%, rgba(255, 183, 77, .055), transparent 0 18%);
+  opacity: .035;
+  font-size: clamp(24px, 3vw, 42px);
+  letter-spacing: 2.2rem;
+  line-height: 7rem;
+  transform: rotate(-7deg);
+  white-space: pre-wrap;
 }
 body::after {
   content: "🐾";
@@ -59,8 +57,6 @@ body::after {
   animation: foxFloat 5s ease-in-out infinite;
   pointer-events:none;
 }
-
-body > div:not(.fixed), body > header, body > main, body > footer { position: relative; z-index: 1; }
 
 @keyframes foxFloat { 0%,100%{transform:translateY(0) rotate(-5deg)} 50%{transform:translateY(-8px) rotate(5deg)} }
 @keyframes foxShimmer { 0%{transform:translateX(-120%)} 100%{transform:translateX(120%)} }
@@ -350,3 +346,97 @@ footer::before {
 .fox-cat-corner small { position:absolute; right:7px; bottom:6px; font-size:11px; }
 header.sticky.is-scrolled { box-shadow:0 14px 36px rgba(44,22,8,.11) !important; }
 @media (max-width: 768px) { .fox-cat-corner { top:82px; left:10px; width:48px; height:48px; border-radius:16px; } .fox-cat-corner span{font-size:23px} }
+
+/* =========================================================
+   FoxShop V5 — Cute cat background + mobile performance pass
+   ========================================================= */
+body {
+  background-color: #fff8f3 !important;
+  background-image:
+    radial-gradient(850px 520px at 8% 5%, rgba(255, 174, 119, .18), transparent 62%),
+    radial-gradient(760px 500px at 94% 18%, rgba(255, 154, 201, .12), transparent 60%),
+    linear-gradient(180deg, #fffaf7 0%, #fff7f3 50%, #fffaf8 100%) !important;
+  background-attachment: scroll !important;
+}
+
+.fox-cat-pattern {
+  position: fixed !important;
+  inset: 72px 0 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: minmax(90px, 1fr);
+  align-items: center;
+  justify-items: center;
+  overflow: hidden;
+  opacity: .105;
+  contain: paint;
+}
+.fox-cat-pattern span {
+  display: block;
+  font-size: clamp(22px, 2.6vw, 34px);
+  line-height: 1;
+  filter: saturate(.9);
+  transform: rotate(var(--r, 0deg));
+}
+.fox-cat-pattern span:nth-child(3n) { --r: -9deg; }
+.fox-cat-pattern span:nth-child(3n + 1) { --r: 7deg; }
+.fox-cat-pattern span:nth-child(3n + 2) { --r: -3deg; }
+
+/* Never animate large page surfaces on touch devices. */
+@media (max-width: 768px), (pointer: coarse) {
+  body::before,
+  body::after { animation: none !important; }
+  body > div:first-child,
+  body > div:first-child::after { animation: none !important; }
+  .fox-cat-corner,
+  .animate-float,
+  .pulse-glow { animation: none !important; }
+
+  .fox-reveal,
+  .fox-reveal.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+
+  .product-card-item::before,
+  #home-featured-grid > div::before,
+  #home-bestseller-grid > div::before,
+  #catalog-products-grid > div::before { display: none !important; }
+
+  header.sticky,
+  .glass-nav,
+  .glass-card,
+  #category-pills-container > * { 
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .product-card-item,
+  #home-featured-grid > div,
+  #home-bestseller-grid > div,
+  #catalog-products-grid > div,
+  main .bg-white.rounded-3xl,
+  main .bg-white.rounded-2xl {
+    box-shadow: 0 5px 18px rgba(87,44,17,.055) !important;
+    transition: none !important;
+  }
+
+  .product-img-box img,
+  .cat-card-bg-img { transition: none !important; }
+  .product-card-item:hover,
+  #home-featured-grid > div:hover,
+  #home-bestseller-grid > div:hover,
+  #catalog-products-grid > div:hover { transform: none !important; }
+
+  .fox-cat-pattern {
+    inset: 72px 0 0 !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-auto-rows: 105px;
+    opacity: .075;
+  }
+  .fox-cat-pattern span { font-size: 22px; }
+}
