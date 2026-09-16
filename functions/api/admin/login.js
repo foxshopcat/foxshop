@@ -63,7 +63,7 @@ export async function onRequestPost(context) {
       valid = await verifyPassword(password, admin.password_salt, admin.password_hash);
     } catch (hashError) {
       console.error('FoxShop password verification error:', hashError);
-      return bad('خطا در سرویس احراز هویت. لطفاً Deployment فعلی Worker را بررسی کنید.', 500);
+      return bad('خطای فنی در بررسی رمز عبور. لطفاً آخرین Deployment Worker را بررسی کنید.', 500);
     }
 
     if (!valid) {
@@ -83,7 +83,6 @@ export async function onRequestPost(context) {
     try {
       session = await createSession(db, admin.id);
     } catch (sessionError) {
-      // Repair a legacy/mismatched sessions table once, then retry.
       console.error('FoxShop session creation error:', sessionError);
       try {
         await db.prepare(`CREATE TABLE IF NOT EXISTS sessions (
@@ -104,8 +103,6 @@ export async function onRequestPost(context) {
       }
     }
 
-    // Do not make login depend on loading the whole catalog.
-    // The client loads the public catalog separately after authentication.
     return json({ ok: true, username: admin.username }, 200, {
       'Set-Cookie': sessionCookie(session.raw)
     });
