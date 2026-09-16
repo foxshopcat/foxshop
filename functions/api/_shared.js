@@ -1,5 +1,3 @@
-import * as nodeCrypto from 'node:crypto';
-
 const SESSION_DAYS = 7;
 const SESSION_COOKIE = 'foxshop_session';
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
@@ -51,14 +49,30 @@ export async function randomHex(byteLength = 32) {
   return bytesToHex(bytes);
 }
 
-// Authentication uses Node's OpenSSL PBKDF2 implementation in Workers.
-// Cloudflare documents node:crypto as fully supported in Workers, and the
-// explicit nodejs_compat flag is enabled in wrangler.jsonc for portability.
+// Use the Workers-native Web Crypto API for PBKDF2. This avoids relying on
+// Node/OpenSSL compatibility shims while producing the same PBKDF2-HMAC-SHA256
+// output as the hash stored in D1. PBKDF2 is supported by Workers Web Crypto.
 export async function passwordHash(password, saltHex) {
   const salt = hexToBytes(saltHex);
-  const pass = String(password ?? '');
-  const derived = nodeCrypto.pbkdf2Sync(pass, salt, PBKDF2_ITERATIONS, PBKDF2_BYTES, 'sha256');
-  return bytesToHex(new Uint8Array(derived.buffer, derived.byteOffset, derived.byteLength));
+  const passBytes = new TextEncoder().encode(String(password ?? ''));
+  const key = await globalThis.crypto.subtle.importKey(
+    'raw',
+    passBytes,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  const bits = await globalThis.crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256'
+    },
+    key,
+    PBKDF2_BYTES * 8
+  );
+  return bytesToHex(new Uint8Array(bits));
 }
 
 export async function verifyPassword(password, saltHex, expectedHash) {
