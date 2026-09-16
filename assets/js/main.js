@@ -1132,11 +1132,12 @@ function renderAdminTabContent() {
 
             <div>
               <label class="block text-[11px] font-bold text-slate-600 mb-1">آدرس عکس یا فایل تصویر:</label>
-              <input type="url" id="admin-new-img" placeholder="https://... یا آپلود فایل زیر"
+              <input type="text" id="admin-new-img" inputmode="url" placeholder="https://... یا عکس ذخیره‌شده در سایت"
                 class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs outline-none focus:border-orange-500 mb-1.5">
               <input type="file" id="admin-product-file" accept="image/webp,image/png,image/jpeg"
                 onchange="handleAdminFileToInput('admin-product-file', 'admin-new-img', 'admin-prod-preview')"
                 class="block w-full text-[11px] text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer">
+              <input type="hidden" id="admin-new-img-key" value="">
               <div id="admin-prod-preview" class="hidden mt-2 p-1.5 bg-white rounded-xl border border-slate-200 flex items-center gap-2">
                 <img id="admin-prod-preview-img" class="w-10 h-10 object-contain rounded-lg">
                 <span class="text-[10px] text-slate-500">پیش‌نمایش تصویر انتخابی</span>
@@ -1482,7 +1483,7 @@ function renderAdminProductsRows(productList) {
         <button onclick="openProductDetailModalWithSplash('${prod.id}')" class="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="مشاهده">
           <i class="fa-solid fa-eye text-xs"></i>
         </button>
-        <button onclick="openAdminProductEditor(${JSON.stringify(prod.id)})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش محصول">
+        <button onclick='openAdminProductEditor(${JSON.stringify(String(prod.id)).replace(/'/g, "&#39;")})' class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش محصول">
           <i class="fa-solid fa-pen-to-square text-xs"></i>
         </button>
         <button onclick="adminDeleteProduct('${prod.id}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="حذف">
@@ -1532,6 +1533,7 @@ async function handleAdminFileToInput(fileInputId, targetInputId, previewWrapper
   if (!backendReady || !isAdminLoggedIn) { showToast("لطفاً ابتدا وارد پنل مدیریت شوید.", "error"); return; }
 
   const file = fileInput.files[0];
+  fileInput.dataset.uploading = "1";
   showToast("در حال فشرده‌سازی و ذخیره تصویر در دیتابیس...", "info");
   try {
     const blob = await compressImageBlob(file);
@@ -1546,14 +1548,12 @@ async function handleAdminFileToInput(fileInputId, targetInputId, previewWrapper
       if (img) img.src = data.url;
     }
     const keyInputId = targetInputId === "admin-new-img" ? "admin-new-img-key" : "admin-cat-img-key";
-    let keyInput = document.getElementById(keyInputId);
-    if (!keyInput) {
-      keyInput = document.createElement("input"); keyInput.type = "hidden"; keyInput.id = keyInputId;
-      document.body.appendChild(keyInput);
-    }
-    keyInput.value = data.key;
+    const keyInput = document.getElementById(keyInputId);
+    if (keyInput) keyInput.value = data.key;
+    fileInput.dataset.uploading = "0";
     showToast("تصویر با موفقیت در دیتابیس آنلاین ذخیره شد 🐾", "success");
   } catch (err) {
+    fileInput.dataset.uploading = "0";
     console.error(err); showToast(err.message || "خطا در بارگذاری تصویر", "error");
   }
 }
@@ -1740,7 +1740,12 @@ async function handleAdminAddProduct(e) {
   const stock = document.getElementById("admin-new-stock")?.value || "in_stock";
   const img = document.getElementById("admin-new-img")?.value.trim() || "https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=600&q=80";
   const imageKey = document.getElementById("admin-new-img-key")?.value || "";
+  const fileInput = document.getElementById("admin-product-file");
   const desc = document.getElementById("admin-new-desc")?.value.trim() || "";
+  if (fileInput?.dataset.uploading === "1") {
+    showToast("لطفاً صبر کنید تا آپلود و فشرده‌سازی تصویر تمام شود.", "info");
+    return;
+  }
   if (!name || !cat) { showToast("نام محصول و دسته‌بندی الزامی است.", "info"); return; }
   const finalPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
   try {
@@ -1774,7 +1779,7 @@ function openAdminProductEditor(productId) {
         <button type="button" onclick="closeAdminProductEditor()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <form onsubmit="handleAdminEditProduct(event, ${JSON.stringify(productId)})" class="space-y-3">
+      <form onsubmit='handleAdminEditProduct(event, ${JSON.stringify(String(productId)).replace(/'/g, "&#39;")})' class="space-y-3">
         <div>
           <label class="block text-[11px] font-bold text-slate-600 mb-1">نام محصول:</label>
           <input id="edit-prod-name" required value="${escapeHtml(prod.name)}" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
@@ -1805,7 +1810,7 @@ function openAdminProductEditor(productId) {
 
         <div>
           <label class="block text-[11px] font-bold text-slate-600 mb-1">آدرس عکس:</label>
-          <input id="edit-prod-image" type="url" value="${escapeHtml(prod.image || '')}" placeholder="https://... یا عکس را از دستگاه انتخاب کنید" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
+          <input id="edit-prod-image" type="text" inputmode="url" value="${escapeHtml(prod.image || '')}" placeholder="https://... یا عکس را از دستگاه انتخاب کنید" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
           <input id="edit-prod-image-key" type="hidden" value="${escapeHtml(prod.imageKey || '')}">
           <div class="mt-2 flex items-center gap-2">
             <label class="px-3 py-2 rounded-xl bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-bold cursor-pointer flex items-center gap-1.5">
