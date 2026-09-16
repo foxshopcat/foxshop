@@ -62,13 +62,8 @@ export async function onRequestPost(context) {
     try {
       valid = await verifyPassword(password, admin.password_salt, admin.password_hash);
     } catch (hashError) {
-      console.error('FoxShop AUTH_HASH_ERROR', {
-        name: hashError?.name,
-        message: hashError?.message,
-        saltLength: String(admin.password_salt ?? '').length,
-        storedHashLength: String(admin.password_hash ?? '').length
-      });
-      return bad('خطای فنی در بررسی رمز عبور (AUTH_HASH_ERROR).', 500);
+      console.error('FoxShop AUTH_CRYPTO_ERROR:', hashError);
+      return bad('AUTH_CRYPTO_ERROR', 500);
     }
 
     if (!valid) {
