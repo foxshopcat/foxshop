@@ -1482,6 +1482,9 @@ function renderAdminProductsRows(productList) {
         <button onclick="openProductDetailModalWithSplash('${prod.id}')" class="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="مشاهده">
           <i class="fa-solid fa-eye text-xs"></i>
         </button>
+        <button onclick="openAdminProductEditor(${JSON.stringify(prod.id)})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش محصول">
+          <i class="fa-solid fa-pen-to-square text-xs"></i>
+        </button>
         <button onclick="adminDeleteProduct('${prod.id}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="حذف">
           <i class="fa-solid fa-trash text-xs"></i>
         </button>
@@ -1496,6 +1499,25 @@ function adminFilterProducts(query) {
   if (!listEl) return;
   const filtered = products.filter(p => p.name.toLowerCase().includes(q) || (p.shortDesc && p.shortDesc.toLowerCase().includes(q)));
   listEl.innerHTML = renderAdminProductsRows(filtered);
+}
+
+function waitForImageLoad(url, timeout = 12000) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    let done = false;
+    const finish = (fn, value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      img.onload = null;
+      img.onerror = null;
+      fn(value);
+    };
+    const timer = setTimeout(() => finish(reject, new Error('تصویر در سرور ذخیره شد اما مرورگر نتوانست آن را لود کند.')), timeout);
+    img.onload = () => finish(resolve, true);
+    img.onerror = () => finish(reject, new Error('تصویر در سرور ذخیره شد اما فایل خروجی قابل نمایش نیست.'));
+    img.src = `${url}${url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  });
 }
 
 /**
@@ -1516,6 +1538,7 @@ async function handleAdminFileToInput(fileInputId, targetInputId, previewWrapper
     const form = new FormData();
     form.append("file", blob, "foxshop-image.webp");
     const data = await apiRequest("/admin/upload-image", { method: "POST", body: form });
+    await waitForImageLoad(data.url);
     if (targetInput) targetInput.value = data.url;
     if (previewWrapper) {
       previewWrapper.classList.remove("hidden");
@@ -1535,37 +1558,79 @@ async function handleAdminFileToInput(fileInputId, targetInputId, previewWrapper
   }
 }
 
-function compressImageBlob(file, maxWidth = 900, maxHeight = 900, quality = 0.78) {
-  return new Promise((resolve, reject) => {
-    if (!file) return reject(new Error("هیچ فایلی انتخاب نشده است"));
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("خطا در خواندن فایل"));
-    reader.onload = () => {
+async function compressImageBlob(file, maxWidth = 1000, maxHeight = 1000, quality = 0.80) {
+  if (!file) throw new Error('هیچ فایلی انتخاب نشده است');
+  const type = String(file.type || '').toLowerCase();
+  if (!/^image\/(webp|jpeg|jpg|png|avif|gif)$/.test(type)) {
+    throw new Error('فقط تصویر JPG، PNG، WebP، AVIF یا GIF مجاز است.');
+  }
+
+  let source = null;
+  let objectUrl = null;
+  try {
+    // createImageBitmap avoids a giant base64 Data URL in memory on mobile.
+    if ('createImageBitmap' in window) {
+      try {
+        source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      } catch (_) {
+        source = await createImageBitmap(file);
+      }
+    }
+  } catch (_) {}
+
+  if (!source) {
+    objectUrl = URL.createObjectURL(file);
+    source = await new Promise((resolve, reject) => {
       const img = new Image();
-      img.onerror = () => reject(new Error("فرمت فایل تصویری معتبر نیست"));
-      img.onload = () => {
-        let width = img.width, height = img.height;
-        const scale = Math.min(1, maxWidth / width, maxHeight / height);
-        width = Math.max(1, Math.round(width * scale));
-        height = Math.max(1, Math.round(height * scale));
-        const canvas = document.createElement("canvas");
-        canvas.width = width; canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("مرورگر از پردازش تصویر پشتیبانی نمی‌کند"));
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, 0, width, height);
-        const finish = (blob) => {
-          if (!blob) return reject(new Error("فشرده‌سازی تصویر انجام نشد"));
-          if (blob.size > 1700000) return reject(new Error("تصویر بعد از فشرده‌سازی هنوز بزرگ است؛ عکس کوچک‌تری انتخاب کنید."));
-          resolve(blob);
-        };
-        canvas.toBlob(finish, "image/webp", quality);
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('فرمت فایل تصویری معتبر نیست'));
+      img.src = objectUrl;
+    });
+  }
+
+  const srcWidth = source.width || source.naturalWidth;
+  const srcHeight = source.height || source.naturalHeight;
+  if (!srcWidth || !srcHeight) throw new Error('ابعاد تصویر قابل تشخیص نیست.');
+
+  const scale = Math.min(1, maxWidth / srcWidth, maxHeight / srcHeight);
+  const width = Math.max(1, Math.round(srcWidth * scale));
+  const height = Math.max(1, Math.round(srcHeight * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: true });
+  if (!ctx) throw new Error('مرورگر از پردازش تصویر پشتیبانی نمی‌کند');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(source, 0, 0, width, height);
+
+  const canvasBlob = (mime, q) => new Promise((resolve) => canvas.toBlob(resolve, mime, q));
+
+  // Prefer WebP; fall back to JPEG. Keep the file comfortably below D1's
+  // 2,000,000-byte BLOB/row limit so the image remains reliable in D1.
+  const attempts = [
+    ['image/webp', Math.min(0.86, Math.max(0.62, quality))],
+    ['image/webp', 0.72],
+    ['image/webp', 0.62],
+    ['image/jpeg', 0.82],
+    ['image/jpeg', 0.72]
+  ];
+
+  let best = null;
+  for (const [mime, q] of attempts) {
+    const blob = await canvasBlob(mime, q);
+    if (!blob) continue;
+    if (!best || blob.size < best.size) best = blob;
+    if (blob.size <= 900000) {
+      best = blob;
+      break;
+    }
+  }
+
+  if (!best) throw new Error('فشرده‌سازی تصویر انجام نشد.');
+  if (best.size > 1800000) throw new Error('حجم تصویر بعد از فشرده‌سازی هنوز زیاد است؛ عکس کوچک‌تری انتخاب کنید.');
+  return best;
 }
 
 /**
@@ -1581,7 +1646,8 @@ async function handleDirectCategoryFileUpload(catId, inputEl) {
     const blob = await compressImageBlob(inputEl.files[0]);
     const form = new FormData(); form.append("file", blob, "category-image.webp");
     const uploaded = await apiRequest("/admin/upload-image", { method: "POST", body: form });
-    const saved = await apiRequest(`/admin/category/${encodeURIComponent(catId)}`, { method: "PUT", body: JSON.stringify({ ...cat, image: uploaded.url }) });
+    await waitForImageLoad(uploaded.url);
+    const saved = await apiRequest(`/admin/category/${encodeURIComponent(catId)}`, { method: "PUT", body: JSON.stringify({ ...cat, image: uploaded.url, imageKey: uploaded.key }) });
     applyRemoteStore(saved.store); renderAdminPortal(); initHeader();
     if (typeof renderHomeCategories === "function") renderHomeCategories();
     if (typeof renderCategoryPills === "function") renderCategoryPills();
@@ -1684,6 +1750,167 @@ async function handleAdminAddProduct(e) {
     if (typeof renderFeaturedProducts === "function") renderFeaturedProducts();
     showToast("محصول جدید با موفقیت در Cloudflare D1 ذخیره و منتشر شد 🐾", "success");
   } catch (err) { showToast(err.message || "خطا در ذخیره محصول", "error"); }
+}
+
+function closeAdminProductEditor() {
+  document.getElementById('admin-product-editor-modal')?.remove();
+}
+
+function openAdminProductEditor(productId) {
+  const prod = products.find(p => p.id === productId);
+  if (!prod) { showToast('محصول موردنظر پیدا نشد.', 'error'); return; }
+  closeAdminProductEditor();
+
+  const modal = document.createElement('div');
+  modal.id = 'admin-product-editor-modal';
+  modal.className = 'fixed inset-0 z-[70] bg-slate-950/70 flex items-center justify-center p-3 sm:p-5';
+  modal.innerHTML = `
+    <div class="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-orange-200 p-4 sm:p-6">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-base sm:text-lg font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-pen-to-square text-orange-600"></i> ویرایش محصول</h3>
+          <p class="text-[11px] text-slate-400 mt-1">تغییرات مستقیماً در Cloudflare D1 ذخیره می‌شود.</p>
+        </div>
+        <button type="button" onclick="closeAdminProductEditor()" class="w-9 h-9 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form onsubmit="handleAdminEditProduct(event, ${JSON.stringify(productId)})" class="space-y-3">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">نام محصول:</label>
+          <input id="edit-prod-name" required value="${escapeHtml(prod.name)}" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">دسته‌بندی:</label>
+            <select id="edit-prod-cat" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
+              ${categories.map(c => `<option value="${escapeHtml(c.id)}" ${c.id === prod.categoryId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">وضعیت انبار:</label>
+            <select id="edit-prod-stock" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
+              <option value="in_stock" ${prod.stockStatus === 'in_stock' ? 'selected' : ''}>موجود در انبار</option>
+              <option value="low_stock" ${prod.stockStatus === 'low_stock' ? 'selected' : ''}>موجودی محدود</option>
+              <option value="out_of_stock" ${prod.stockStatus === 'out_of_stock' ? 'selected' : ''}>ناموجود</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div><label class="block text-[11px] font-bold text-slate-600 mb-1">قیمت اصلی:</label><input id="edit-prod-price" type="number" min="0" value="${Number(prod.originalPrice) || 0}" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500"></div>
+          <div><label class="block text-[11px] font-bold text-slate-600 mb-1">تخفیف ٪:</label><input id="edit-prod-discount" type="number" min="0" max="90" value="${Number(prod.discountPercent) || 0}" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500"></div>
+          <div><label class="block text-[11px] font-bold text-slate-600 mb-1">قیمت نهایی:</label><input id="edit-prod-final" type="number" min="0" value="${Number(prod.finalPrice) || 0}" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500"></div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">آدرس عکس:</label>
+          <input id="edit-prod-image" type="url" value="${escapeHtml(prod.image || '')}" placeholder="https://... یا عکس را از دستگاه انتخاب کنید" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">
+          <input id="edit-prod-image-key" type="hidden" value="${escapeHtml(prod.imageKey || '')}">
+          <div class="mt-2 flex items-center gap-2">
+            <label class="px-3 py-2 rounded-xl bg-orange-50 border border-orange-200 text-orange-700 text-[11px] font-bold cursor-pointer flex items-center gap-1.5">
+              <i class="fa-solid fa-image"></i><span>انتخاب و فشرده‌سازی عکس</span>
+              <input id="edit-prod-file" type="file" accept="image/webp,image/jpeg,image/png,image/avif,image/gif" class="hidden" onchange="handleAdminEditProductFile(this)">
+            </label>
+            <span id="edit-prod-upload-status" class="text-[10px] text-slate-400"></span>
+          </div>
+          <div class="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2 ${prod.image ? '' : 'hidden'}" id="edit-prod-preview-wrap">
+            <img id="edit-prod-preview" src="${escapeHtml(prod.image || '')}" class="w-14 h-14 object-contain rounded-lg bg-white border border-slate-200" alt="پیش‌نمایش">
+            <span class="text-[10px] text-slate-500">پیش‌نمایش تصویر فعلی</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">توضیحات کوتاه:</label>
+          <textarea id="edit-prod-short" rows="2" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">${escapeHtml(prod.shortDesc || '')}</textarea>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 mb-1">توضیحات کامل:</label>
+          <textarea id="edit-prod-full" rows="4" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500">${escapeHtml(prod.fullDesc || '')}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+          <label class="flex items-center gap-2 text-[11px] font-bold text-slate-700"><input id="edit-prod-featured" type="checkbox" ${prod.isFeatured ? 'checked' : ''}> ویژه</label>
+          <label class="flex items-center gap-2 text-[11px] font-bold text-slate-700"><input id="edit-prod-best" type="checkbox" ${prod.isBestSeller ? 'checked' : ''}> پرفروش</label>
+          <label class="flex items-center gap-2 text-[11px] font-bold text-slate-700"><input id="edit-prod-new" type="checkbox" ${prod.isNew ? 'checked' : ''}> جدید</label>
+        </div>
+
+        <div class="flex gap-2 pt-1">
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center justify-center gap-1.5"><i class="fa-solid fa-floppy-disk"></i> ذخیره تغییرات</button>
+          <button type="button" onclick="closeAdminProductEditor()" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs">انصراف</button>
+        </div>
+      </form>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function handleAdminEditProductFile(inputEl) {
+  const file = inputEl?.files?.[0];
+  if (!file) return;
+  if (!backendReady || !isAdminLoggedIn) { showToast('لطفاً ابتدا وارد پنل مدیریت شوید.', 'error'); return; }
+  const status = document.getElementById('edit-prod-upload-status');
+  try {
+    if (status) status.textContent = 'در حال فشرده‌سازی...';
+    const blob = await compressImageBlob(file);
+    const form = new FormData();
+    form.append('file', blob, blob.type === 'image/jpeg' ? 'foxshop-image.jpg' : 'foxshop-image.webp');
+    const uploaded = await apiRequest('/admin/upload-image', { method: 'POST', body: form });
+    await waitForImageLoad(uploaded.url);
+    document.getElementById('edit-prod-image').value = uploaded.url;
+    document.getElementById('edit-prod-image-key').value = uploaded.key;
+    const preview = document.getElementById('edit-prod-preview');
+    const wrap = document.getElementById('edit-prod-preview-wrap');
+    if (preview) preview.src = `${uploaded.url}?v=${Date.now()}`;
+    if (wrap) wrap.classList.remove('hidden');
+    if (status) status.textContent = `آماده؛ ${Math.round(blob.size / 1024)}KB`;
+    showToast('عکس فشرده شد و با موفقیت در D1 ذخیره شد 🐾', 'success');
+  } catch (err) {
+    console.error(err);
+    if (status) status.textContent = '';
+    showToast(err.message || 'خطا در آپلود تصویر', 'error');
+  }
+}
+
+async function handleAdminEditProduct(event, productId) {
+  event.preventDefault();
+  if (!backendReady || !isAdminLoggedIn) { showToast('ورود مدیریت لازم است.', 'error'); return; }
+  const prod = products.find(p => p.id === productId);
+  if (!prod) { showToast('محصول موردنظر پیدا نشد.', 'error'); return; }
+
+  const originalPrice = Number(document.getElementById('edit-prod-price')?.value) || 0;
+  const discountPercent = Math.min(90, Math.max(0, Number(document.getElementById('edit-prod-discount')?.value) || 0));
+  const finalField = document.getElementById('edit-prod-final')?.value;
+  const finalPrice = finalField === '' ? Math.round(originalPrice * (1 - discountPercent / 100)) : Math.max(0, Number(finalField) || 0);
+
+  try {
+    const data = await apiRequest(`/admin/product/${encodeURIComponent(productId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: document.getElementById('edit-prod-name')?.value.trim() || '',
+        categoryId: document.getElementById('edit-prod-cat')?.value || '',
+        stockStatus: document.getElementById('edit-prod-stock')?.value || 'in_stock',
+        originalPrice,
+        discountPercent,
+        finalPrice,
+        isFeatured: !!document.getElementById('edit-prod-featured')?.checked,
+        isBestSeller: !!document.getElementById('edit-prod-best')?.checked,
+        isNew: !!document.getElementById('edit-prod-new')?.checked,
+        image: document.getElementById('edit-prod-image')?.value.trim() || '',
+        imageKey: document.getElementById('edit-prod-image-key')?.value || '',
+        shortDesc: document.getElementById('edit-prod-short')?.value.trim() || '',
+        fullDesc: document.getElementById('edit-prod-full')?.value.trim() || ''
+      })
+    });
+    applyRemoteStore(data.store);
+    closeAdminProductEditor();
+    renderAdminPortal();
+    if (typeof renderProductsCatalog === 'function') renderProductsCatalog();
+    if (typeof renderFeaturedProducts === 'function') renderFeaturedProducts();
+    showToast('تغییرات محصول با موفقیت ذخیره شد 🐾', 'success');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'خطا در ویرایش محصول', 'error');
+  }
 }
 
 async function adminDeleteProduct(id) {
@@ -1820,6 +2047,10 @@ if (typeof window !== "undefined") {
   window.handleAdminAddCategory = handleAdminAddCategory;
   window.handleAdminAddProduct = handleAdminAddProduct;
   window.adminDeleteProduct = adminDeleteProduct;
+  window.openAdminProductEditor = openAdminProductEditor;
+  window.closeAdminProductEditor = closeAdminProductEditor;
+  window.handleAdminEditProduct = handleAdminEditProduct;
+  window.handleAdminEditProductFile = handleAdminEditProductFile;
   window.adminFilterProducts = adminFilterProducts;
   window.adminExportBackup = adminExportBackup;
   window.adminImportBackup = adminImportBackup;
