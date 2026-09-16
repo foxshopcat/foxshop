@@ -1706,8 +1706,7 @@ async function handleAdminLogin(event) {
   const passInput = document.getElementById("admin-password-input")?.value || "";
   try {
     const data = await apiRequest("/admin/login", { method:"POST", body:JSON.stringify({username:usernameInput,password:passInput}) });
-    isAdminLoggedIn = true; adminUsername = data.username || usernameInput;
-    try { await refreshRemoteStore(); } catch (_) { /* catalog is already available/fallback */ }
+    isAdminLoggedIn = true; adminUsername = data.username || usernameInput; applyRemoteStore(data.store);
     showToast("ورود موفقیت‌آمیز به پنل مدیریت FoxShop 🐾", "success"); renderAdminPortal();
   } catch (err) { showToast(err.message || "نام کاربری یا رمز عبور اشتباه است.", err.status===429 ? "info" : "error"); renderAdminPortal(); }
 }
@@ -1847,23 +1846,43 @@ if (typeof window !== "undefined") {
         'footer'
       ];
       const elements = document.querySelectorAll(revealSelectors.join(','));
-      elements.forEach((el, i) => {
-        if (el.classList.contains('fixed')) return;
-        el.classList.add('fox-reveal');
-        el.style.animationDelay = `${Math.min(i * 35, 420)}ms`;
-      });
+      const isTouchOrMobile = window.matchMedia && window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
 
-      if ('IntersectionObserver' in window) {
-        const observer = new IntersectionObserver((entries, obs) => {
-          entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            entry.target.classList.add('is-visible');
-            obs.unobserve(entry.target);
-          });
-        }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
-        elements.forEach(el => observer.observe(el));
+      if (!isTouchOrMobile) {
+        elements.forEach((el, i) => {
+          if (el.classList.contains('fixed')) return;
+          el.classList.add('fox-reveal');
+          el.style.animationDelay = `${Math.min(i * 35, 420)}ms`;
+        });
+
+        if ('IntersectionObserver' in window) {
+          const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-visible');
+              obs.unobserve(entry.target);
+            });
+          }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+          elements.forEach(el => observer.observe(el));
+        } else {
+          elements.forEach(el => el.classList.add('is-visible'));
+        }
       } else {
         elements.forEach(el => el.classList.add('is-visible'));
+      }
+
+      if (!document.querySelector('.fox-cat-pattern')) {
+        const pattern = document.createElement('div');
+        pattern.className = 'fox-cat-pattern';
+        pattern.setAttribute('aria-hidden', 'true');
+        const icons = ['🐱','🐾','😺','🐾','🐱','🐾','😸'];
+        const count = isTouchOrMobile ? 25 : 35;
+        for (let i = 0; i < count; i++) {
+          const span = document.createElement('span');
+          span.textContent = icons[i % icons.length];
+          pattern.appendChild(span);
+        }
+        document.body.appendChild(pattern);
       }
 
       const header = document.querySelector('header.sticky');
