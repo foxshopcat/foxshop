@@ -1706,7 +1706,8 @@ async function handleAdminLogin(event) {
   const passInput = document.getElementById("admin-password-input")?.value || "";
   try {
     const data = await apiRequest("/admin/login", { method:"POST", body:JSON.stringify({username:usernameInput,password:passInput}) });
-    isAdminLoggedIn = true; adminUsername = data.username || usernameInput; applyRemoteStore(data.store);
+    isAdminLoggedIn = true; adminUsername = data.username || usernameInput;
+    try { await refreshRemoteStore(); } catch (_) { /* catalog is already available/fallback */ }
     showToast("ورود موفقیت‌آمیز به پنل مدیریت FoxShop 🐾", "success"); renderAdminPortal();
   } catch (err) { showToast(err.message || "نام کاربری یا رمز عبور اشتباه است.", err.status===429 ? "info" : "error"); renderAdminPortal(); }
 }
