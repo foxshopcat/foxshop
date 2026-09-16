@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.68.0/config-schema.json",
+  "name": "foxshop",
+  "main": "./worker.js",
+  "compatibility_date": "2026-09-16",
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "foxshop-db",
+      "database_id": "PASTE_YOUR_D1_DATABASE_ID_HERE"
+    }
+  ]
+}

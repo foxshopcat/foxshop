@@ -1,0 +1,12 @@
+worker.js
+wrangler.jsonc
+package.json
+cloudflare-d1-schema.sql
+CLOUDFLARE-SETUP-NO-R2.txt
+README.md
+functions/**
+assets/**/.DS_Store
+.assetsignore
+.nojekyll
+_headers
+_routes.json
