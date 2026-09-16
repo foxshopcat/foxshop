@@ -63,7 +63,7 @@ export async function onRequestPost(context) {
       valid = await verifyPassword(password, admin.password_salt, admin.password_hash);
     } catch (hashError) {
       console.error('FoxShop password verification error:', hashError);
-      return bad('خطا در بررسی رمز عبور در Worker. لطفاً Deployment و compatibility date را بررسی کنید.', 500);
+      return bad('خطا در سرویس احراز هویت. لطفاً Deployment فعلی Worker را بررسی کنید.', 500);
     }
 
     if (!valid) {
