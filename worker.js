@@ -24,7 +24,8 @@ async function healthHandler(context) {
     build: 'foxshop-auth-webcrypto-v5',
     d1: !!context.env.DB,
     webCrypto: !!globalThis.crypto?.subtle,
-    pbkdf2: typeof crypto?.subtle?.deriveBits === 'function'
+    pbkdf2: typeof crypto?.subtle?.deriveBits === 'function',
+    pbkdf2Iterations: 100000
   }), {
     status: 200,
     headers: {

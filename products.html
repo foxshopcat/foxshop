@@ -7,7 +7,7 @@
   <meta name="description" content="کاتالوگ کامل غذای خشک، کنسرو، پوچ، مکمل‌های درمانی و لوازم گربه در پت‌شاپ FoxShop با قیمت روز و سفارش در تلگرام">
   
   <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com" defer></script>
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Custom Stylesheet -->
@@ -65,7 +65,7 @@
         <div class="flex items-center gap-3">
           <div class="brand-logo-trigger relative group cursor-pointer select-none" title="FoxShop.cat - پت‌شاپ تخصصی گربه‌ها">
             <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-100/70 p-1.5 border border-orange-200/80 shadow-md group-hover:shadow-lg group-hover:border-orange-400 transition-all flex items-center justify-center overflow-hidden">
-              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCA9wPsl74QezScl6MSgkI2o0xUTzfcjGUtFbzxomrJAIf6RXTyJ4Vt37NbG-HSROy0k7OY1w1g0FQycVmExxDWxx-pTo4BozV8Rt7OnTeb8vvsIBis0RxQIaeFqPPYcMaOM7KMCmth-w7A9l_TAW9Z_nmWueMMYj89L-312K11CIz-TgjjEO9hEsd41UPsCivtswJi7O-hpFxHWGJl4xZHf5w5R50arV9ZPUhMFzPJlfyNtICfR0IBS6hMALr65T-hxkA" alt="FoxShop Logo" class="w-full h-full object-contain">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCA9wPsl74QezScl6MSgkI2o0xUTzfcjGUtFbzxomrJAIf6RXTyJ4Vt37NbG-HSROy0k7OY1w1g0FQycVmExxDWxx-pTo4BozV8Rt7OnTeb8vvsIBis0RxQIaeFqPPYcMaOM7KMCmth-w7A9l_TAW9Z_nmWueMMYj89L-312K11CIz-TgjjEO9hEsd41UPsCivtswJi7O-hpFxHWGJl4xZHf5w5R50arV9ZPUhMFzPJlfyNtICfR0IBS6hMALr65T-hxkA" alt="FoxShop Logo" decoding="async" class="w-full h-full object-contain">
             </div>
           </div>
 
@@ -497,7 +497,7 @@
             ` : ''}
 
             <div onclick="openProductDetailModalWithSplash('${prod.id}')" class="product-img-box cursor-pointer aspect-square w-full bg-slate-50 overflow-hidden flex items-center justify-center p-6 group-hover:bg-orange-50/20 transition">
-              <img src="${prod.image}" alt="${escapeHtml(prod.name)}" class="w-full h-full object-contain group-hover:scale-105 transition duration-500 drop-shadow-sm">
+              <img src="${prod.image}" alt="${escapeHtml(prod.name)}" loading="lazy" decoding="async" class="w-full h-full object-contain group-hover:scale-105 transition duration-500 drop-shadow-sm">
             </div>
 
             <div class="product-info-box p-5 flex-1 flex flex-col justify-between space-y-3">

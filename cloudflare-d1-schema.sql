@@ -79,12 +79,13 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Initial admin account.
 -- Username: admin
 -- Initial password: admin123
+-- Seed hash uses PBKDF2-HMAC-SHA256 with 100,000 iterations (Workers production ceiling).
 -- IMPORTANT: change the password immediately from the management panel.
 INSERT OR IGNORE INTO admins (id, username, password_hash, password_salt, created_at, updated_at)
 VALUES (
   1,
   'admin',
-  '8b33a7c02624ca443f6950b64a1dd5e162ad611474c16959160383335550623f',
+  'a8884f6291a2fa0d1c8ed3a8b0a13e0d0a94b65e7fca77194d66b1b5cd853688',
   'f31a69ce8aec54ac4f6663adb05ead3e',
   datetime('now'), datetime('now')
 );
