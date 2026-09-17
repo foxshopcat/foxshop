@@ -816,3 +816,181 @@ body::after {
   #home-hero-premium { border-radius:24px !important; }
   #home-hero-premium h1 { font-size:2rem !important; }
 }
+
+
+/* =========================================================
+   FoxShop V6 — Cute Boutique / Mobile Performance
+   Final visual override: no DOM rewrites, no heavy libraries.
+   ========================================================= */
+:root {
+  --fox-v6-cream: #fff8f1;
+  --fox-v6-peach: #ffb36e;
+  --fox-v6-orange: #f47b30;
+  --fox-v6-pink: #ec6fa9;
+  --fox-v6-lilac: #9b79dd;
+  --fox-v6-ink: #2b2130;
+  --fox-v6-line: rgba(122, 76, 50, .10);
+}
+
+html { background:#fff8f1; }
+body {
+  color:var(--fox-v6-ink) !important;
+  background:
+    radial-gradient(420px 260px at 4% 7%, rgba(255,179,110,.24), transparent 70%),
+    radial-gradient(480px 300px at 96% 12%, rgba(236,111,169,.16), transparent 72%),
+    radial-gradient(520px 330px at 82% 78%, rgba(155,121,221,.10), transparent 74%),
+    linear-gradient(180deg,#fffaf6 0%,#fff7f1 52%,#fff9f6 100%) !important;
+  background-attachment:scroll !important;
+}
+body::before {
+  content:"🐾   ♡   🐱   ✦   🐾   ♡   🐱" !important;
+  position:fixed !important;
+  inset:84px -6% auto !important;
+  width:112% !important;
+  height:220px !important;
+  z-index:-2 !important;
+  pointer-events:none !important;
+  opacity:.038 !important;
+  font-size:clamp(20px,2.2vw,34px) !important;
+  line-height:105px !important;
+  letter-spacing:1.5rem !important;
+  transform:rotate(-4deg) !important;
+  white-space:pre-wrap !important;
+  background:none !important;
+}
+body::after { display:none !important; }
+
+/* Static top ribbon: zero-cost on mobile, still lively on desktop. */
+body > div:first-child { animation:none !important; background:linear-gradient(90deg,#6f52b6,#ec6fa9,#f47b30,#ec6fa9,#6f52b6) !important; background-size:auto !important; }
+body > div:first-child::after { display:none !important; }
+
+header.sticky {
+  background:rgba(255,252,249,.94) !important;
+  border-bottom:1px solid rgba(122,76,50,.09) !important;
+  box-shadow:0 10px 30px rgba(75,47,30,.07) !important;
+}
+header.sticky > div > div { min-height:74px !important; }
+.brand-logo-trigger > div {
+  background:linear-gradient(145deg,#fff2e4,#fff8f2) !important;
+  box-shadow:0 10px 26px rgba(244,123,48,.16), inset 0 0 0 1px rgba(255,255,255,.8) !important;
+}
+
+/* Hero / category / catalog surfaces */
+#home-hero-premium {
+  border-radius:32px !important;
+  background:
+    radial-gradient(circle at 83% 17%, rgba(255,231,195,.34), transparent 22%),
+    radial-gradient(circle at 13% 85%, rgba(255,146,188,.24), transparent 28%),
+    linear-gradient(145deg,#332633 0%,#644154 42%,#e47b48 100%) !important;
+  box-shadow:0 30px 72px rgba(76,45,54,.18) !important;
+}
+#home-categories-grid > a {
+  min-height:112px !important;
+  border-radius:24px !important;
+  background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(255,246,238,.95)) !important;
+  border-color:rgba(244,123,48,.13) !important;
+  box-shadow:0 16px 32px rgba(88,53,34,.07) !important;
+}
+#catalog-products-grid > div, .product-card-item {
+  border:1px solid rgba(122,76,50,.10) !important;
+  border-radius:24px !important;
+  background:linear-gradient(150deg,rgba(255,255,255,.98),rgba(255,249,244,.96)) !important;
+  box-shadow:0 14px 30px rgba(82,48,31,.07) !important;
+  content-visibility:auto;
+  contain-intrinsic-size:340px;
+}
+#catalog-products-grid > div:hover, .product-card-item:hover { transform:translateY(-3px) !important; box-shadow:0 22px 46px rgba(82,48,31,.11) !important; }
+.product-img-box { background:linear-gradient(145deg,#fffdfb,#fff3e7) !important; }
+.product-img-box img { filter:drop-shadow(0 10px 18px rgba(77,46,30,.09)); }
+
+/* Product page: rich but light. */
+#product-page-root .bg-white.rounded-3xl,
+#product-page-root .fox-review-section { border-color:rgba(122,76,50,.10) !important; box-shadow:0 18px 42px rgba(82,48,31,.07) !important; }
+#product-page-root .aspect-square.rounded-3xl { background:linear-gradient(145deg,#fffdfb,#fff0e4) !important; }
+#product-page-root .bg-orange-50.border-orange-100 { background:linear-gradient(145deg,#fff6ec,#fff1f6) !important; }
+
+/* Catalog search = visible, tactile, store-like. */
+.fox-catalog-search-wrap { position:relative; }
+.fox-catalog-search-icon { position:absolute; right:16px; top:50%; transform:translateY(-50%); color:#bc9e8e; font-size:13px; pointer-events:none; }
+.fox-catalog-search-button, .fox-static-search-link, .fox-search-icon-button {
+  display:inline-grid !important; place-items:center !important;
+  width:42px; height:42px; border-radius:14px;
+  border:1px solid rgba(244,123,48,.14);
+  background:linear-gradient(145deg,#fff7f0,#fff) !important;
+  color:#d97031 !important;
+  box-shadow:0 8px 18px rgba(122,76,50,.08);
+  transition:transform .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+.fox-catalog-search-button { position:absolute; left:5px; top:50%; transform:translateY(-50%); }
+.fox-catalog-search-button:hover, .fox-static-search-link:hover, .fox-search-icon-button:hover { transform:translateY(-1px); box-shadow:0 10px 22px rgba(122,76,50,.11); }
+#catalog-search-input { padding-right:44px !important; padding-left:54px !important; }
+
+/* Professional search modal + live suggestions. */
+.fox-search-live-results { margin-top:12px; display:grid; gap:7px; }
+.fox-search-result { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:16px; border:1px solid rgba(122,76,50,.08); background:rgba(255,255,255,.90); color:inherit; text-decoration:none; }
+.fox-search-result img { width:42px; height:42px; border-radius:12px; object-fit:contain; background:#fff7ef; }
+.fox-search-result span { flex:1; min-width:0; }
+.fox-search-result b { display:block; font-size:10px; color:#342832; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fox-search-result small { display:block; margin-top:2px; color:#9b8790; font-size:8px; }
+.fox-search-result > i { font-size:9px; color:#c3a59a; }
+.fox-search-empty { padding:14px; border-radius:16px; background:#fff8f1; color:#967f76; font-size:9px; line-height:1.8; text-align:center; }
+.fox-search-all { padding:11px 14px; border-radius:14px; border:0; background:linear-gradient(135deg,#f47b30,#ec6fa9); color:#fff; font-size:9px; font-weight:900; }
+
+/* One tiny trust strip only, immediately above footer. */
+.fox-trust-footer { padding:0 12px 12px !important; }
+.fox-trust-shell { max-width:1120px !important; padding:8px 12px !important; border-radius:16px !important; background:rgba(45,32,48,.92) !important; border:1px solid rgba(255,255,255,.07) !important; box-shadow:0 12px 26px rgba(46,31,45,.08) !important; }
+.fox-trust-mini { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px 16px; color:rgba(255,255,255,.64); font-size:8px; line-height:1.6; }
+.fox-trust-mini span { display:inline-flex; align-items:center; gap:5px; }
+.fox-trust-mini i { color:#ffb36e; font-size:9px; }
+
+/* Footer boutique layout with the supplied cat image. */
+footer {
+  min-height:340px;
+  background:
+    radial-gradient(circle at 74% 18%, rgba(236,111,169,.10), transparent 22%),
+    linear-gradient(145deg,#17111e,#251629 62%,#120d17) !important;
+}
+footer::before {
+  content:"" !important;
+  position:absolute !important;
+  left:8px !important;
+  bottom:0 !important;
+  width:min(240px,30vw) !important;
+  height:300px !important;
+  background:url('../images/foxshop-cat-footer.webp') left bottom / contain no-repeat !important;
+  opacity:.98 !important;
+  pointer-events:none !important;
+  transform:none !important;
+}
+footer .max-w-7xl { position:relative; z-index:2; }
+
+/* Remove decorative floating corner; it was visually noisy and costly. */
+.fox-cat-corner { display:none !important; }
+
+@media (max-width: 900px) {
+  *, *::before, *::after { animation:none !important; }
+  body { background-attachment:scroll !important; }
+  header.sticky, .glass-nav, .glass-card, #category-pills-container > * { backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+  .product-card-item, #catalog-products-grid > div { box-shadow:0 7px 20px rgba(82,48,31,.06) !important; transition:none !important; }
+  .product-card-item:hover, #catalog-products-grid > div:hover { transform:none !important; }
+  .fox-search-modal { backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+  footer { min-height:300px; }
+  footer::before { width:190px !important; height:245px !important; }
+}
+
+@media (max-width: 640px) {
+  body::before { opacity:.025 !important; font-size:20px !important; letter-spacing:.9rem !important; }
+  main::before { display:none !important; }
+  #home-categories-grid { gap:8px !important; }
+  #catalog-products-grid { gap:10px !important; }
+  #catalog-products-grid > div, .product-card-item { border-radius:19px !important; }
+  #catalog-search-input { min-height:48px !important; }
+  .fox-catalog-search-button { width:38px; height:38px; }
+  .fox-static-search-link, .fox-search-icon-button { width:38px; height:38px; }
+  .fox-trust-mini { justify-content:flex-start; gap:6px 10px; font-size:7.5px; }
+  footer::before { width:156px !important; height:205px !important; left:0 !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation:none !important; transition:none !important; }
+}
