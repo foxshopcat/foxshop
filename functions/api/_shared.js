@@ -1,11 +1,10 @@
 const SESSION_DAYS = 7;
 const SESSION_COOKIE = 'foxshop_session';
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
-// Cloudflare Workers production caps WebCrypto PBKDF2 at 100,000 iterations.
-// Keep this at the platform ceiling so production login does not throw.
 const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
+let extendedSchemaReady = false;
 
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -34,9 +33,7 @@ function hexToBytes(hex) {
     throw new Error('Invalid hexadecimal salt');
   }
   const out = new Uint8Array(clean.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
-  }
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   return out;
 }
 
@@ -52,26 +49,12 @@ export async function randomHex(byteLength = 32) {
   return bytesToHex(bytes);
 }
 
-// Authentication uses the Cloudflare Workers-native Web Crypto PBKDF2 API.
-// This avoids the Node/OpenSSL compatibility layer and matches the PBKDF2-
-// HMAC-SHA256 format already stored in D1.
 export async function passwordHash(password, saltHex) {
   const salt = hexToBytes(saltHex);
   const passBytes = new TextEncoder().encode(String(password ?? ''));
-  const key = await globalThis.crypto.subtle.importKey(
-    'raw',
-    passBytes,
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
+  const key = await globalThis.crypto.subtle.importKey('raw', passBytes, { name: 'PBKDF2' }, false, ['deriveBits']);
   const bits = await globalThis.crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256'
-    },
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     key,
     PBKDF2_BYTES * 8
   );
@@ -109,9 +92,8 @@ export async function createSession(db, adminId) {
   const raw = await randomHex(32);
   const tokenHash = await sha256Hex(raw);
   const expiresAt = Date.now() + SESSION_MAX_AGE * 1000;
-  await db.prepare(
-    'INSERT INTO sessions (token_hash, admin_id, expires_at, created_at) VALUES (?, ?, ?, ?)'
-  ).bind(tokenHash, adminId, expiresAt, new Date().toISOString()).run();
+  await db.prepare('INSERT INTO sessions (token_hash, admin_id, expires_at, created_at) VALUES (?, ?, ?, ?)')
+    .bind(tokenHash, adminId, expiresAt, new Date().toISOString()).run();
   return { raw, expiresAt };
 }
 
@@ -119,14 +101,11 @@ export async function requireAdmin(context) {
   const raw = getCookie(context.request, SESSION_COOKIE);
   if (!raw) return null;
   const hash = await sha256Hex(raw);
-  const row = await context.env.DB.prepare(`
+  return context.env.DB.prepare(`
     SELECT a.id, a.username
-    FROM sessions s
-    JOIN admins a ON a.id = s.admin_id
-    WHERE s.token_hash = ? AND s.expires_at > ?
-    LIMIT 1
+    FROM sessions s JOIN admins a ON a.id = s.admin_id
+    WHERE s.token_hash = ? AND s.expires_at > ? LIMIT 1
   `).bind(hash, Date.now()).first();
-  return row || null;
 }
 
 export async function deleteSession(context) {
@@ -140,137 +119,146 @@ export async function requireJson(request) {
   return request.json().catch(() => null);
 }
 
-
-let PRODUCT_SCHEMA_READY = false;
-
-const PRODUCT_EXTRA_COLUMNS = [
-  ['slug', "TEXT NOT NULL DEFAULT ''"],
-  ['brand', "TEXT NOT NULL DEFAULT ''"],
-  ['weight', "TEXT NOT NULL DEFAULT ''"],
-  ['flavor', "TEXT NOT NULL DEFAULT ''"],
-  ['age_range', "TEXT NOT NULL DEFAULT ''"],
-  ['goal', "TEXT NOT NULL DEFAULT ''"],
-  ['ingredients', "TEXT NOT NULL DEFAULT ''"],
-  ['nutrition_analysis', "TEXT NOT NULL DEFAULT ''"],
-  ['country_of_origin', "TEXT NOT NULL DEFAULT ''"],
-  ['barcode', "TEXT NOT NULL DEFAULT ''"],
-  ['expiration_date', "TEXT NOT NULL DEFAULT ''"],
-  ['usage', "TEXT NOT NULL DEFAULT ''"],
-  ['warranty', "TEXT NOT NULL DEFAULT ''"],
-  ['storage', "TEXT NOT NULL DEFAULT ''"],
-  ['authenticity', "TEXT NOT NULL DEFAULT ''"],
-  ['stock_quantity', "INTEGER NOT NULL DEFAULT 0"],
-  ['min_stock', "INTEGER NOT NULL DEFAULT 0"],
-  ['restock_time', "TEXT NOT NULL DEFAULT ''"],
-  ['rating', "REAL NOT NULL DEFAULT 0"],
-  ['sales_count', "INTEGER NOT NULL DEFAULT 0"],
-  ['extra_images', "TEXT NOT NULL DEFAULT '[]'"],
-  ['related_product_ids', "TEXT NOT NULL DEFAULT '[]'"],
-  ['complementary_product_ids', "TEXT NOT NULL DEFAULT '[]'"],
-  ['faq', "TEXT NOT NULL DEFAULT '[]'"],
-  ['is_consumable', "INTEGER NOT NULL DEFAULT 0"],
-  ['shipping_note', "TEXT NOT NULL DEFAULT ''"],
-  ['return_policy', "TEXT NOT NULL DEFAULT ''"]
-];
-
-function parseJsonField(value, fallback) {
-  if (value === null || value === undefined || value === '') return fallback;
+function safeJson(value, fallback) {
   try {
-    const parsed = JSON.parse(value);
+    const parsed = JSON.parse(String(value ?? ''));
     return parsed ?? fallback;
-  } catch {
+  } catch (_) {
     return fallback;
   }
 }
 
-export async function ensureStoreSchema(db) {
-  if (PRODUCT_SCHEMA_READY) return;
-
-  const columns = await db.prepare('PRAGMA table_info(products)').all();
-  const existing = new Set((columns?.results || []).map(row => String(row.name)));
-
-  for (const [name, definition] of PRODUCT_EXTRA_COLUMNS) {
-    if (!existing.has(name)) {
-      try {
-        await db.prepare(`ALTER TABLE products ADD COLUMN ${name} ${definition}`).run();
-      } catch (error) {
-        if (!/duplicate column name|already exists/i.test(String(error?.message || error))) throw error;
-      }
-    }
-  }
-
-  await db.prepare(`CREATE TABLE IF NOT EXISTS product_reviews (
-    id TEXT PRIMARY KEY,
-    product_id TEXT NOT NULL,
-    customer_name TEXT NOT NULL,
-    body TEXT NOT NULL,
-    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    photo_url TEXT NOT NULL DEFAULT '',
-    approved INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-  )`).run();
-  await db.prepare('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id)').run();
-  await db.prepare('CREATE INDEX IF NOT EXISTS idx_product_reviews_approved ON product_reviews(approved, created_at)').run();
-
-  const settingsDefaults = {
-    shopCity: 'تبریز',
-    freeShippingThreshold: 2000000,
-    shippingTable: 'هزینه و زمان ارسال بر اساس شهر و روش ارسال هنگام ثبت سفارش اعلام می‌شود.',
-    returnPolicy: 'سیاست مرجوعی: کالا باید سالم، استفاده‌نشده و مطابق شرایط اعلام‌شده در فاکتور تحویل باشد.',
-    storageText: 'شرایط نگهداری هر محصول در صفحه همان محصول درج می‌شود؛ غذای خشک و تشویقی را در جای خشک، خنک و دور از نور مستقیم نگهداری کنید.',
-    authenticityText: 'ضمانت اصالت کالا بر اساس فاکتور فروشگاه و شرایط اعلام‌شده در سفارش.',
-    licenseText: '',
-    supportText: 'پشتیبانی و ثبت سفارش از طریق اینستاگرام و روبیکا انجام می‌شود.'
+function normalizeDetails(row) {
+  if (!row) return {
+    slug: '', brand: '', weight: '', volume: '', flavor: '', suitableAge: '', goals: '', ingredients: '', nutritionAnalysis: '', country: '', barcode: '', expiryDate: '', usageMethod: '', warranty: '', storage: '', authenticity: '', actualStock: null, minStock: null, restockTime: '', rating: 0, reviewCount: 0, salesCount: 0, moreImages: [], faq: [], relatedIds: [], tags: [], consumable: false
   };
-  const now = new Date().toISOString();
-  for (const [key, value] of Object.entries(settingsDefaults)) {
-    await db.prepare('INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES(?,?,?)')
-      .bind(key, JSON.stringify(value), now).run();
-  }
-  await db.prepare("DELETE FROM settings WHERE key LIKE 'tele%User'").run();
-
-  PRODUCT_SCHEMA_READY = true;
+  return {
+    slug: String(row.slug || ''),
+    brand: String(row.brand || ''),
+    weight: String(row.weight || ''),
+    volume: String(row.volume || ''),
+    flavor: String(row.flavor || ''),
+    suitableAge: String(row.suitable_age || ''),
+    goals: String(row.goals || ''),
+    ingredients: String(row.ingredients || ''),
+    nutritionAnalysis: String(row.nutrition_analysis || ''),
+    country: String(row.country || ''),
+    barcode: String(row.barcode || ''),
+    expiryDate: String(row.expiry_date || ''),
+    usageMethod: String(row.usage_method || ''),
+    warranty: String(row.warranty || ''),
+    storage: String(row.storage || ''),
+    authenticity: String(row.authenticity || ''),
+    actualStock: row.actual_stock == null ? null : Number(row.actual_stock),
+    minStock: row.min_stock == null ? null : Number(row.min_stock),
+    restockTime: String(row.restock_time || ''),
+    rating: Number(row.rating) || 0,
+    reviewCount: Number(row.review_count) || 0,
+    salesCount: Number(row.sales_count) || 0,
+    moreImages: safeJson(row.more_images_json, []),
+    faq: safeJson(row.faq_json, []),
+    relatedIds: safeJson(row.related_ids_json, []),
+    tags: safeJson(row.tags_json, []),
+    consumable: Boolean(Number(row.consumable || 0))
+  };
 }
 
-function safeJsonArray(value) {
-  const parsed = parseJsonField(value, []);
-  return Array.isArray(parsed) ? parsed : [];
+export async function ensureExtendedSchema(db) {
+  if (!db || extendedSchemaReady) return;
+  await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS product_details (
+      product_id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL DEFAULT '',
+      brand TEXT NOT NULL DEFAULT '',
+      weight TEXT NOT NULL DEFAULT '',
+      volume TEXT NOT NULL DEFAULT '',
+      flavor TEXT NOT NULL DEFAULT '',
+      suitable_age TEXT NOT NULL DEFAULT '',
+      goals TEXT NOT NULL DEFAULT '',
+      ingredients TEXT NOT NULL DEFAULT '',
+      nutrition_analysis TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      barcode TEXT NOT NULL DEFAULT '',
+      expiry_date TEXT NOT NULL DEFAULT '',
+      usage_method TEXT NOT NULL DEFAULT '',
+      warranty TEXT NOT NULL DEFAULT '',
+      storage TEXT NOT NULL DEFAULT '',
+      authenticity TEXT NOT NULL DEFAULT '',
+      actual_stock INTEGER,
+      min_stock INTEGER,
+      restock_time TEXT NOT NULL DEFAULT '',
+      rating REAL NOT NULL DEFAULT 0,
+      review_count INTEGER NOT NULL DEFAULT 0,
+      sales_count INTEGER NOT NULL DEFAULT 0,
+      more_images_json TEXT NOT NULL DEFAULT '[]',
+      faq_json TEXT NOT NULL DEFAULT '[]',
+      related_ids_json TEXT NOT NULL DEFAULT '[]',
+      tags_json TEXT NOT NULL DEFAULT '[]',
+      consumable INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_details_brand ON product_details(brand)`),
+    db.prepare(`INSERT OR IGNORE INTO product_details(product_id, created_at, updated_at)
+      SELECT id, datetime('now'), datetime('now') FROM products`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS product_reviews (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL,
+      customer_name TEXT NOT NULL DEFAULT '',
+      rating INTEGER NOT NULL DEFAULT 5,
+      review_text TEXT NOT NULL DEFAULT '',
+      photo_url TEXT NOT NULL DEFAULT '',
+      approved INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS customer_stories (
+      id TEXT PRIMARY KEY,
+      customer_name TEXT NOT NULL DEFAULT '',
+      cat_name TEXT NOT NULL DEFAULT '',
+      photo_url TEXT NOT NULL DEFAULT '',
+      quote TEXT NOT NULL DEFAULT '',
+      approved INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS foxshop_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL
+    )`),
+    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('storeLocation','"تبریز، ایران"',datetime('now'))`),
+    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('freeShippingThreshold','2500000',datetime('now'))`),
+    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingCost','120000',datetime('now'))`),
+    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingDispatchTime','"۱ تا ۲ روز کاری"',datetime('now'))`),
+    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('returnPolicy','"شرایط مرجوعی طبق سیاست ثبت‌شده فروشگاه و با بررسی وضعیت کالا انجام می‌شود."',datetime('now'))`),
+    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('authenticityPolicy','"اطلاعات اصالت و مستندات هر محصول فقط در صورت ثبت و قابل ارائه بودن نمایش داده می‌شود."',datetime('now'))`),
+    db.prepare(`INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES('remove_telegram_setting', datetime('now'))`),
+    db.prepare(`DELETE FROM settings WHERE key='telegramUser'`)
+  ]);
+  extendedSchemaReady = true;
 }
 
 export async function getStore(db) {
-  // Never let optional enhancement migrations take down the existing catalog.
-  // The original product tables must remain readable even if a new column cannot be added.
-  try {
-    await ensureStoreSchema(db);
-  } catch (migrationError) {
-    console.error('Optional store migration failed:', migrationError);
-  }
-
-  const [cats, prods, rows] = await Promise.all([
+  await ensureExtendedSchema(db);
+  const [cats, prods, details, reviews, stories, rows] = await Promise.all([
     db.prepare('SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories ORDER BY sort_order ASC, created_at ASC').all(),
-    db.prepare(`SELECT
-      p.id,p.name,p.category_id AS categoryId,p.stock_status AS stockStatus,
-      p.original_price AS originalPrice,p.discount_percent AS discountPercent,p.final_price AS finalPrice,
-      p.is_featured AS isFeatured,p.is_best_seller AS isBestSeller,p.is_new AS isNew,
-      p.image,p.image_key AS imageKey,p.short_desc AS shortDesc,p.full_desc AS fullDesc,
-      p.slug,p.brand,p.weight,p.flavor,p.age_range AS ageRange,p.goal,
-      p.ingredients,p.nutrition_analysis AS nutritionAnalysis,p.country_of_origin AS countryOfOrigin,
-      p.barcode,p.expiration_date AS expirationDate,p.usage,p.warranty,p.storage,p.authenticity,
-      p.stock_quantity AS stockQuantity,p.min_stock AS minStock,p.restock_time AS restockTime,
-      p.sales_count AS salesCount,p.extra_images AS extraImages,p.related_product_ids AS relatedProductIds,
-      p.complementary_product_ids AS complementaryProductIds,p.faq,p.is_consumable AS isConsumable,
-      p.shipping_note AS shippingNote,p.return_policy AS returnPolicy,
-      COALESCE((SELECT ROUND(AVG(r.rating),1) FROM product_reviews r WHERE r.product_id=p.id AND r.approved=1), p.rating, 0) AS rating,
-      (SELECT COUNT(*) FROM product_reviews r WHERE r.product_id=p.id AND r.approved=1) AS reviewCount
-      FROM products p ORDER BY p.created_at DESC`).all(),
+    db.prepare('SELECT id,name,category_id AS categoryId,stock_status AS stockStatus,original_price AS originalPrice,discount_percent AS discountPercent,final_price AS finalPrice,is_featured AS isFeatured,is_best_seller AS isBestSeller,is_new AS isNew,image,image_key AS imageKey,short_desc AS shortDesc,full_desc AS fullDesc FROM products ORDER BY created_at DESC').all(),
+    db.prepare('SELECT * FROM product_details').all(),
+    db.prepare('SELECT id,product_id AS productId,customer_name AS customerName,rating,review_text AS reviewText,photo_url AS photoUrl,created_at AS createdAt FROM product_reviews WHERE approved=1 ORDER BY created_at DESC').all(),
+    db.prepare('SELECT id,customer_name AS customerName,cat_name AS catName,photo_url AS photoUrl,quote,created_at AS createdAt FROM customer_stories WHERE approved=1 ORDER BY created_at DESC').all(),
     db.prepare('SELECT key,value FROM settings').all()
   ]);
 
+  const detailsByProduct = {};
+  for (const row of details?.results || []) detailsByProduct[row.product_id] = normalizeDetails(row);
+  const reviewsByProduct = {};
+  for (const row of reviews?.results || []) (reviewsByProduct[row.productId] ||= []).push(row);
+
   const settings = {};
-  for (const r of (rows?.results || [])) {
-    try { settings[r.key] = JSON.parse(r.value); }
-    catch { settings[r.key] = r.value; }
+  for (const r of rows?.results || []) {
+    const parsed = safeJson(r.value, null);
+    settings[r.key] = parsed === null ? r.value : parsed;
   }
 
   const products = (prods?.results || []).map(p => ({
@@ -278,22 +266,15 @@ export async function getStore(db) {
     isFeatured: Boolean(p.isFeatured),
     isBestSeller: Boolean(p.isBestSeller),
     isNew: Boolean(p.isNew),
-    isConsumable: Boolean(p.isConsumable),
-    extraImages: safeJsonArray(p.extraImages),
-    relatedProductIds: safeJsonArray(p.relatedProductIds),
-    complementaryProductIds: safeJsonArray(p.complementaryProductIds),
-    faq: safeJsonArray(p.faq),
-    stockQuantity: Number(p.stockQuantity || 0),
-    minStock: Number(p.minStock || 0),
-    salesCount: Number(p.salesCount || 0),
-    rating: Number(p.rating || 0),
-    reviewCount: Number(p.reviewCount || 0)
+    details: detailsByProduct[p.id] || normalizeDetails(null),
+    reviews: reviewsByProduct[p.id] || []
   }));
 
   return {
     categories: cats?.results || [],
     products,
-    settings
+    settings,
+    customerStories: stories?.results || []
   };
 }
 
@@ -301,60 +282,76 @@ export function cleanString(value, max = 100000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-export function safeProductJsonArray(value, maxItems = 30, maxItemLength = 400) {
-  let parsed = value;
-  if (typeof parsed === 'string') {
-    try { parsed = JSON.parse(parsed); } catch { parsed = []; }
-  }
-  if (!Array.isArray(parsed)) return [];
-  return parsed.slice(0, maxItems).map(item => {
-    if (typeof item === 'string') return item.trim().slice(0, maxItemLength);
-    if (item && typeof item === 'object') {
-      return Object.fromEntries(Object.entries(item).slice(0, 12).map(([k,v]) => [
-        String(k).slice(0, 60),
-        typeof v === 'string' ? v.slice(0, maxItemLength) : v
-      ]));
+export function cleanJsonArray(value, maxItems = 40, maxItemLength = 2000) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, maxItems).map(item => {
+    if (typeof item === 'string') return cleanString(item, maxItemLength);
+    if (!item || typeof item !== 'object') return null;
+    const copy = {};
+    for (const [k, v] of Object.entries(item).slice(0, 16)) {
+      if (typeof v === 'string') copy[k] = cleanString(v, maxItemLength);
+      else if (typeof v === 'number' || typeof v === 'boolean') copy[k] = v;
     }
-    return null;
+    return copy;
   }).filter(Boolean);
 }
 
-export function normalizeProductPayload(body, fallbackId = '') {
-  const b = body && typeof body === 'object' ? body : {};
-  const originalPrice = Math.max(0, Number(b.originalPrice) || 0);
-  const discountPercent = Math.min(90, Math.max(0, Number(b.discountPercent) || 0));
-  const rawFinal = Number(b.finalPrice);
-  const finalPrice = Number.isFinite(rawFinal)
-    ? Math.max(0, rawFinal)
-    : Math.round(originalPrice * (1 - discountPercent / 100));
-  const id = cleanString(b.id, 100) || fallbackId || `fox_${crypto.randomUUID().replaceAll('-', '').slice(0, 18)}`;
-  const slug = cleanString(b.slug, 180) || id;
+export function buildProductDetails(body = {}) {
+  const list = cleanJsonArray;
+  const actualStock = body.actualStock === '' || body.actualStock == null ? null : Math.max(0, Math.floor(Number(body.actualStock) || 0));
+  const minStock = body.minStock === '' || body.minStock == null ? null : Math.max(0, Math.floor(Number(body.minStock) || 0));
   return {
-    id, name: cleanString(b.name, 180), categoryId: cleanString(b.categoryId, 100),
-    stockStatus: cleanString(b.stockStatus, 30) || 'in_stock',
-    originalPrice, discountPercent, finalPrice,
-    isFeatured: Boolean(b.isFeatured), isBestSeller: Boolean(b.isBestSeller), isNew: Boolean(b.isNew),
-    image: cleanString(b.image, 500000), imageKey: cleanString(b.imageKey, 200),
-    shortDesc: cleanString(b.shortDesc, 3000), fullDesc: cleanString(b.fullDesc, 20000),
-    slug, brand: cleanString(b.brand, 160), weight: cleanString(b.weight, 120),
-    flavor: cleanString(b.flavor, 160), ageRange: cleanString(b.ageRange, 180),
-    goal: cleanString(b.goal, 240), ingredients: cleanString(b.ingredients, 8000),
-    nutritionAnalysis: cleanString(b.nutritionAnalysis, 5000),
-    countryOfOrigin: cleanString(b.countryOfOrigin, 160), barcode: cleanString(b.barcode, 80),
-    expirationDate: cleanString(b.expirationDate, 80), usage: cleanString(b.usage, 5000),
-    warranty: cleanString(b.warranty, 1500), storage: cleanString(b.storage, 1500),
-    authenticity: cleanString(b.authenticity, 1500),
-    stockQuantity: Math.max(0, Math.floor(Number(b.stockQuantity) || 0)),
-    minStock: Math.max(0, Math.floor(Number(b.minStock) || 0)),
-    restockTime: cleanString(b.restockTime, 160),
-    rating: Math.min(5, Math.max(0, Number(b.rating) || 0)),
-    salesCount: Math.max(0, Math.floor(Number(b.salesCount) || 0)),
-    extraImages: safeProductJsonArray(b.extraImages),
-    relatedProductIds: safeProductJsonArray(b.relatedProductIds, 30, 100),
-    complementaryProductIds: safeProductJsonArray(b.complementaryProductIds, 30, 100),
-    faq: safeProductJsonArray(b.faq, 20, 1000),
-    isConsumable: Boolean(b.isConsumable),
-    shippingNote: cleanString(b.shippingNote, 1000),
-    returnPolicy: cleanString(b.returnPolicy, 1500)
+    slug: cleanString(body.slug, 160),
+    brand: cleanString(body.brand, 160),
+    weight: cleanString(body.weight, 100),
+    volume: cleanString(body.volume, 100),
+    flavor: cleanString(body.flavor, 180),
+    suitableAge: cleanString(body.suitableAge, 260),
+    goals: cleanString(body.goals, 400),
+    ingredients: cleanString(body.ingredients, 12000),
+    nutritionAnalysis: cleanString(body.nutritionAnalysis, 10000),
+    country: cleanString(body.country, 120),
+    barcode: cleanString(body.barcode, 80),
+    expiryDate: cleanString(body.expiryDate, 80),
+    usageMethod: cleanString(body.usageMethod, 3000),
+    warranty: cleanString(body.warranty, 500),
+    storage: cleanString(body.storage, 1200),
+    authenticity: cleanString(body.authenticity, 1000),
+    actualStock,
+    minStock,
+    restockTime: cleanString(body.restockTime, 160),
+    rating: Math.min(5, Math.max(0, Number(body.rating) || 0)),
+    reviewCount: Math.max(0, Math.floor(Number(body.reviewCount) || 0)),
+    salesCount: Math.max(0, Math.floor(Number(body.salesCount) || 0)),
+    moreImages: list(body.moreImages, 8, 500000),
+    faq: list(body.faq, 12, 1000),
+    relatedIds: list(body.relatedIds, 12, 120),
+    tags: list(body.tags, 30, 80),
+    consumable: Boolean(body.consumable)
   };
+}
+
+export async function upsertProductDetails(db, productId, details) {
+  await ensureExtendedSchema(db);
+  const now = new Date().toISOString();
+  return db.prepare(`INSERT INTO product_details(
+    product_id,slug,brand,weight,volume,flavor,suitable_age,goals,ingredients,nutrition_analysis,country,barcode,expiry_date,
+    usage_method,warranty,storage,authenticity,actual_stock,min_stock,restock_time,rating,review_count,sales_count,more_images_json,
+    faq_json,related_ids_json,tags_json,consumable,created_at,updated_at
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  ON CONFLICT(product_id) DO UPDATE SET
+    slug=excluded.slug,brand=excluded.brand,weight=excluded.weight,volume=excluded.volume,flavor=excluded.flavor,
+    suitable_age=excluded.suitable_age,goals=excluded.goals,ingredients=excluded.ingredients,nutrition_analysis=excluded.nutrition_analysis,
+    country=excluded.country,barcode=excluded.barcode,expiry_date=excluded.expiry_date,usage_method=excluded.usage_method,warranty=excluded.warranty,
+    storage=excluded.storage,authenticity=excluded.authenticity,actual_stock=excluded.actual_stock,min_stock=excluded.min_stock,
+    restock_time=excluded.restock_time,rating=excluded.rating,review_count=excluded.review_count,sales_count=excluded.sales_count,
+    more_images_json=excluded.more_images_json,faq_json=excluded.faq_json,related_ids_json=excluded.related_ids_json,tags_json=excluded.tags_json,
+    consumable=excluded.consumable,updated_at=excluded.updated_at`)
+    .bind(
+      productId, details.slug, details.brand, details.weight, details.volume, details.flavor, details.suitableAge, details.goals,
+      details.ingredients, details.nutritionAnalysis, details.country, details.barcode, details.expiryDate, details.usageMethod,
+      details.warranty, details.storage, details.authenticity, details.actualStock, details.minStock, details.restockTime, details.rating,
+      details.reviewCount, details.salesCount, JSON.stringify(details.moreImages), JSON.stringify(details.faq), JSON.stringify(details.relatedIds),
+      JSON.stringify(details.tags), details.consumable ? 1 : 0, now, now
+    ).run();
 }
