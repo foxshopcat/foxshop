@@ -165,85 +165,135 @@ function normalizeDetails(row) {
 
 export async function ensureExtendedSchema(db) {
   if (!db || extendedSchemaReady) return;
-  await db.batch([
-    db.prepare(`CREATE TABLE IF NOT EXISTS product_details (
-      product_id TEXT PRIMARY KEY,
-      slug TEXT NOT NULL DEFAULT '',
-      brand TEXT NOT NULL DEFAULT '',
-      weight TEXT NOT NULL DEFAULT '',
-      volume TEXT NOT NULL DEFAULT '',
-      flavor TEXT NOT NULL DEFAULT '',
-      suitable_age TEXT NOT NULL DEFAULT '',
-      goals TEXT NOT NULL DEFAULT '',
-      ingredients TEXT NOT NULL DEFAULT '',
-      nutrition_analysis TEXT NOT NULL DEFAULT '',
-      country TEXT NOT NULL DEFAULT '',
-      barcode TEXT NOT NULL DEFAULT '',
-      expiry_date TEXT NOT NULL DEFAULT '',
-      usage_method TEXT NOT NULL DEFAULT '',
-      warranty TEXT NOT NULL DEFAULT '',
-      storage TEXT NOT NULL DEFAULT '',
-      authenticity TEXT NOT NULL DEFAULT '',
-      actual_stock INTEGER,
-      min_stock INTEGER,
-      restock_time TEXT NOT NULL DEFAULT '',
-      rating REAL NOT NULL DEFAULT 0,
-      review_count INTEGER NOT NULL DEFAULT 0,
-      sales_count INTEGER NOT NULL DEFAULT 0,
-      more_images_json TEXT NOT NULL DEFAULT '[]',
-      faq_json TEXT NOT NULL DEFAULT '[]',
-      related_ids_json TEXT NOT NULL DEFAULT '[]',
-      tags_json TEXT NOT NULL DEFAULT '[]',
-      consumable INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-    )`),
-    db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_details_brand ON product_details(brand)`),
-    db.prepare(`INSERT OR IGNORE INTO product_details(product_id, created_at, updated_at)
-      SELECT id, datetime('now'), datetime('now') FROM products`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS product_reviews (
-      id TEXT PRIMARY KEY,
-      product_id TEXT NOT NULL,
-      customer_name TEXT NOT NULL DEFAULT '',
-      rating INTEGER NOT NULL DEFAULT 5,
-      review_text TEXT NOT NULL DEFAULT '',
-      photo_url TEXT NOT NULL DEFAULT '',
-      approved INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-    )`),
-    db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS review_submission_log (
-      id TEXT PRIMARY KEY,
-      fingerprint TEXT NOT NULL,
-      product_id TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    )`),
-    db.prepare(`CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS customer_stories (
-      id TEXT PRIMARY KEY,
-      customer_name TEXT NOT NULL DEFAULT '',
-      cat_name TEXT NOT NULL DEFAULT '',
-      photo_url TEXT NOT NULL DEFAULT '',
-      quote TEXT NOT NULL DEFAULT '',
-      approved INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS foxshop_migrations (
-      id TEXT PRIMARY KEY,
-      applied_at TEXT NOT NULL
-    )`),
-    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('storeLocation','"تبریز، ایران"',datetime('now'))`),
-    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('freeShippingThreshold','2500000',datetime('now'))`),
-    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingCost','120000',datetime('now'))`),
-    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingDispatchTime','"۱ تا ۲ روز کاری"',datetime('now'))`),
-    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('returnPolicy','"شرایط مرجوعی طبق سیاست ثبت‌شده فروشگاه و با بررسی وضعیت کالا انجام می‌شود."',datetime('now'))`),
-    db.prepare(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('authenticityPolicy','"اطلاعات اصالت و مستندات هر محصول فقط در صورت ثبت و قابل ارائه بودن نمایش داده می‌شود."',datetime('now'))`),
-    db.prepare(`INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES('remove_telegram_setting', datetime('now'))`),
-    db.prepare(`DELETE FROM settings WHERE key='telegramUser'`)
-  ]);
+
+  // D1 can survive several deployments. Migrate legacy tables one statement at a time
+  // so one incompatible old column never turns the admin review API into a generic 500.
+  const exec = async (sql) => {
+    try {
+      await db.prepare(sql).run();
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      if (/already exists|duplicate column name/i.test(message)) return;
+      throw error;
+    }
+  };
+
+  await exec(`CREATE TABLE IF NOT EXISTS product_details (
+    product_id TEXT PRIMARY KEY, slug TEXT NOT NULL DEFAULT '', brand TEXT NOT NULL DEFAULT '', weight TEXT NOT NULL DEFAULT '',
+    volume TEXT NOT NULL DEFAULT '', flavor TEXT NOT NULL DEFAULT '', suitable_age TEXT NOT NULL DEFAULT '', goals TEXT NOT NULL DEFAULT '',
+    ingredients TEXT NOT NULL DEFAULT '', nutrition_analysis TEXT NOT NULL DEFAULT '', country TEXT NOT NULL DEFAULT '', barcode TEXT NOT NULL DEFAULT '',
+    expiry_date TEXT NOT NULL DEFAULT '', usage_method TEXT NOT NULL DEFAULT '', warranty TEXT NOT NULL DEFAULT '', storage TEXT NOT NULL DEFAULT '',
+    authenticity TEXT NOT NULL DEFAULT '', actual_stock INTEGER, min_stock INTEGER, restock_time TEXT NOT NULL DEFAULT '',
+    rating REAL NOT NULL DEFAULT 0, review_count INTEGER NOT NULL DEFAULT 0, sales_count INTEGER NOT NULL DEFAULT 0,
+    more_images_json TEXT NOT NULL DEFAULT '[]', faq_json TEXT NOT NULL DEFAULT '[]', related_ids_json TEXT NOT NULL DEFAULT '[]',
+    tags_json TEXT NOT NULL DEFAULT '[]', consumable INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+  )`);
+  const productDetailColumns = [
+    ['slug', "TEXT NOT NULL DEFAULT ''"], ['brand', "TEXT NOT NULL DEFAULT ''"], ['weight', "TEXT NOT NULL DEFAULT ''"],
+    ['volume', "TEXT NOT NULL DEFAULT ''"], ['flavor', "TEXT NOT NULL DEFAULT ''"], ['suitable_age', "TEXT NOT NULL DEFAULT ''"],
+    ['goals', "TEXT NOT NULL DEFAULT ''"], ['ingredients', "TEXT NOT NULL DEFAULT ''"], ['nutrition_analysis', "TEXT NOT NULL DEFAULT ''"],
+    ['country', "TEXT NOT NULL DEFAULT ''"], ['barcode', "TEXT NOT NULL DEFAULT ''"], ['expiry_date', "TEXT NOT NULL DEFAULT ''"],
+    ['usage_method', "TEXT NOT NULL DEFAULT ''"], ['warranty', "TEXT NOT NULL DEFAULT ''"], ['storage', "TEXT NOT NULL DEFAULT ''"],
+    ['authenticity', "TEXT NOT NULL DEFAULT ''"], ['actual_stock', 'INTEGER'], ['min_stock', 'INTEGER'],
+    ['restock_time', "TEXT NOT NULL DEFAULT ''"], ['rating', 'REAL NOT NULL DEFAULT 0'], ['review_count', 'INTEGER NOT NULL DEFAULT 0'],
+    ['sales_count', 'INTEGER NOT NULL DEFAULT 0'], ['more_images_json', "TEXT NOT NULL DEFAULT '[]'"], ['faq_json', "TEXT NOT NULL DEFAULT '[]'"],
+    ['related_ids_json', "TEXT NOT NULL DEFAULT '[]'"], ['tags_json', "TEXT NOT NULL DEFAULT '[]'"], ['consumable', 'INTEGER NOT NULL DEFAULT 0'],
+    ['created_at', "TEXT NOT NULL DEFAULT ''"], ['updated_at', "TEXT NOT NULL DEFAULT ''"]
+  ];
+  for (const [name, type] of productDetailColumns) await exec(`ALTER TABLE product_details ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_product_details_brand ON product_details(brand)');
+  await exec(`INSERT OR IGNORE INTO product_details(product_id, created_at, updated_at) SELECT id, datetime('now'), datetime('now') FROM products`);
+
+  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
+    id TEXT PRIMARY KEY, product_id TEXT NOT NULL, customer_name TEXT NOT NULL DEFAULT '', rating INTEGER NOT NULL DEFAULT 5,
+    review_text TEXT NOT NULL DEFAULT '', photo_url TEXT NOT NULL DEFAULT '', approved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT ''
+  )`);
+  for (const [name, type] of [
+    ['product_id', "TEXT NOT NULL DEFAULT ''"], ['customer_name', "TEXT NOT NULL DEFAULT ''"], ['rating', 'INTEGER NOT NULL DEFAULT 5'],
+    ['review_text', "TEXT NOT NULL DEFAULT ''"], ['photo_url', "TEXT NOT NULL DEFAULT ''"], ['approved', 'INTEGER NOT NULL DEFAULT 0'],
+    ['created_at', "TEXT NOT NULL DEFAULT ''"]
+  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
+
+  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
+    id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL DEFAULT '', product_id TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL DEFAULT 0
+  )`);
+  for (const [name, type] of [['fingerprint', "TEXT NOT NULL DEFAULT ''"], ['product_id', "TEXT NOT NULL DEFAULT ''"], ['created_at', 'INTEGER NOT NULL DEFAULT 0']]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
+
+  await exec(`CREATE TABLE IF NOT EXISTS customer_stories (
+    id TEXT PRIMARY KEY, customer_name TEXT NOT NULL DEFAULT '', cat_name TEXT NOT NULL DEFAULT '', photo_url TEXT NOT NULL DEFAULT '',
+    quote TEXT NOT NULL DEFAULT '', approved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT ''
+  )`);
+  for (const [name, type] of [
+    ['customer_name', "TEXT NOT NULL DEFAULT ''"], ['cat_name', "TEXT NOT NULL DEFAULT ''"], ['photo_url', "TEXT NOT NULL DEFAULT ''"],
+    ['quote', "TEXT NOT NULL DEFAULT ''"], ['approved', 'INTEGER NOT NULL DEFAULT 0'], ['created_at', "TEXT NOT NULL DEFAULT ''"]
+  ]) await exec(`ALTER TABLE customer_stories ADD COLUMN ${name} ${type}`);
+
+  await exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')`);
+  await exec(`CREATE TABLE IF NOT EXISTS foxshop_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT '')`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('storeLocation','"تبریز، ایران"',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('freeShippingThreshold','2500000',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingCost','120000',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingDispatchTime','"۱ تا ۲ روز کاری"',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('returnPolicy','"شرایط مرجوعی طبق سیاست ثبت‌شده فروشگاه و با بررسی وضعیت کالا انجام می‌شود."',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('authenticityPolicy','"اطلاعات اصالت و مستندات هر محصول فقط در صورت ثبت و قابل ارائه بودن نمایش داده می‌شود."',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES('remove_telegram_setting', datetime('now'))`);
+  await exec(`DELETE FROM settings WHERE key='telegramUser'`);
   extendedSchemaReady = true;
+}
+
+
+/**
+ * Minimal, isolated D1 migration for the customer-review feature.
+ * It intentionally does not depend on product_details/settings/customer_stories,
+ * so an older database can still serve /api/admin/review and /api/review safely.
+ */
+export async function ensureReviewSchema(db) {
+  if (!db) throw new Error('D1 binding is missing');
+  const exec = async (sql) => {
+    try {
+      await db.prepare(sql).run();
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      if (/already exists|duplicate column name/i.test(message)) return;
+      throw error;
+    }
+  };
+
+  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
+    id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL DEFAULT '',
+    customer_name TEXT NOT NULL DEFAULT '',
+    rating INTEGER NOT NULL DEFAULT 5,
+    review_text TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    approved INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT ''
+  )`);
+  for (const [name, type] of [
+    ['product_id', "TEXT NOT NULL DEFAULT ''"],
+    ['customer_name', "TEXT NOT NULL DEFAULT ''"],
+    ['rating', 'INTEGER NOT NULL DEFAULT 5'],
+    ['review_text', "TEXT NOT NULL DEFAULT ''"],
+    ['photo_url', "TEXT NOT NULL DEFAULT ''"],
+    ['approved', 'INTEGER NOT NULL DEFAULT 0'],
+    ['created_at', "TEXT NOT NULL DEFAULT ''"]
+  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
+
+  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
+    id TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL DEFAULT '',
+    product_id TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT 0
+  )`);
+  for (const [name, type] of [
+    ['fingerprint', "TEXT NOT NULL DEFAULT ''"],
+    ['product_id', "TEXT NOT NULL DEFAULT ''"],
+    ['created_at', 'INTEGER NOT NULL DEFAULT 0']
+  ]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
 }
 
 export async function getStore(db) {

@@ -1,4 +1,4 @@
-import { bad, cleanString, ensureExtendedSchema, json, requireJson, sha256Hex } from './_shared.js';
+import { bad, cleanString, ensureReviewSchema, json, requireJson, sha256Hex } from './_shared.js';
 
 function sameOrigin(request) {
   const origin = request.headers.get('Origin');
@@ -21,7 +21,7 @@ export async function onRequestPost(context) {
   if (!productId || !customerName || reviewText.length < 5) return bad('نام، امتیاز و متن نظر الزامی است.');
   if (customerName.length < 2) return bad('نام نمایشی کوتاه است.');
 
-  await ensureExtendedSchema(context.env.DB);
+  await ensureReviewSchema(context.env.DB);
   const product = await context.env.DB.prepare('SELECT id FROM products WHERE id=? LIMIT 1').bind(productId).first();
   if (!product) return bad('محصول پیدا نشد.', 404);
 
