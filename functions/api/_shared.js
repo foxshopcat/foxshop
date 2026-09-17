@@ -214,6 +214,13 @@ export async function ensureExtendedSchema(db) {
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     )`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS review_submission_log (
+      id TEXT PRIMARY KEY,
+      fingerprint TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS customer_stories (
       id TEXT PRIMARY KEY,
       customer_name TEXT NOT NULL DEFAULT '',
