@@ -12,10 +12,11 @@ import { onRequestPut as adminCategoryUpdate, onRequestDelete as adminCategoryDe
 import { onRequestPost as adminImport } from './functions/api/admin/import.js';
 import { onRequestPost as adminReset } from './functions/api/admin/reset.js';
 import { onRequestPost as adminUploadImage } from './functions/api/admin/upload-image.js';
+import { onRequestPost as adminReviewCreate } from './functions/api/admin/review.js';
+import { onRequestDelete as adminReviewDelete } from './functions/api/admin/review/[id].js';
+import { onRequestPost as adminStoryCreate } from './functions/api/admin/story.js';
+import { onRequestDelete as adminStoryDelete } from './functions/api/admin/story/[id].js';
 import { bad } from './functions/api/_shared.js';
-import { onRequestGet as getReviews, onRequestPost as postReview } from './functions/api/reviews.js';
-import { onRequestGet as adminReviews, onRequestPut as adminReviewUpdate, onRequestDelete as adminReviewDelete } from './functions/api/admin/review/index.js';
-import { onRequestPut as adminSettings } from './functions/api/admin/settings.js';
 
 function contextFor(request, env, executionCtx, params = {}) {
   return { request, env, params, waitUntil: executionCtx?.waitUntil?.bind(executionCtx), next: executionCtx?.passThroughOnException?.bind(executionCtx) };
@@ -38,16 +39,53 @@ async function healthHandler(context) {
   });
 }
 
+
+
+function escapeHtmlServer(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[ch]));
+}
+
+function buildProductSeoHtml(product, requestUrl) {
+  const origin = new URL(requestUrl).origin;
+  const canonical = `${origin}/product/${encodeURIComponent(String(product.id))}`;
+  const title = `${product.name} | FoxShop`;
+  const description = String(product.shortDesc || product.fullDesc || 'خرید و مشخصات کامل محصول در پت‌شاپ FoxShop تبریز').replace(/\s+/g, ' ').slice(0, 170);
+  const image = String(product.image || '');
+  const details = product.details || {};
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: image ? [image] : [],
+    description,
+    brand: details.brand ? { '@type': 'Brand', name: details.brand } : undefined,
+    sku: details.barcode || product.id,
+    offers: { '@type': 'Offer', priceCurrency: 'IRR', price: Number(product.finalPrice) || 0, availability: product.stockStatus === 'out_of_stock' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock', url: canonical },
+    aggregateRating: Number(details.reviewCount) > 0 && Number(details.rating) > 0 ? { '@type':'AggregateRating', ratingValue:Number(details.rating), reviewCount:Number(details.reviewCount) } : undefined
+  };
+  const jsonLd = JSON.stringify(schema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
+  return `<title>${escapeHtmlServer(title)}</title><meta name="description" content="${escapeHtmlServer(description)}"><link rel="canonical" href="${escapeHtmlServer(canonical)}"><meta property="og:title" content="${escapeHtmlServer(title)}"><meta property="og:description" content="${escapeHtmlServer(description)}">${image ? `<meta property="og:image" content="${escapeHtmlServer(image)}">` : ''}<script type="application/ld+json">${jsonLd}</script>`;
+}
+
+function addSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('x-content-type-options', 'nosniff');
+  headers.set('x-frame-options', 'DENY');
+  headers.set('referrer-policy', 'strict-origin-when-cross-origin');
+  headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+  headers.set('cross-origin-opener-policy', 'same-origin');
+  headers.set('cross-origin-resource-policy', 'same-site');
+  headers.set('content-security-policy', "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:");
+  headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 function matchApi(url, request) {
   const p = url.pathname;
   const method = request.method.toUpperCase();
 
   if (p === '/api/health' && method === 'GET') return [healthHandler, {}];
   if (p === '/api/store' && method === 'GET') return [getStore, {}];
-  if (p === '/api/reviews' && method === 'GET') return [getReviews, {}];
-  if (p === '/api/reviews' && method === 'POST') return [postReview, {}];
-  if (p === '/api/admin/reviews' && method === 'GET') return [adminReviews, {}];
-  if (p === '/api/admin/settings' && method === 'PUT') return [adminSettings, {}];
   if (p === '/api/admin/login' && method === 'POST') return [adminLogin, {}];
   if (p === '/api/admin/logout' && method === 'POST') return [adminLogout, {}];
   if (p === '/api/admin/me' && method === 'GET') return [adminMe, {}];
@@ -58,6 +96,8 @@ function matchApi(url, request) {
   if (p === '/api/admin/import' && method === 'POST') return [adminImport, {}];
   if (p === '/api/admin/reset' && method === 'POST') return [adminReset, {}];
   if (p === '/api/admin/upload-image' && method === 'POST') return [adminUploadImage, {}];
+  if (p === '/api/admin/review' && method === 'POST') return [adminReviewCreate, {}];
+  if (p === '/api/admin/story' && method === 'POST') return [adminStoryCreate, {}];
 
   let m = p.match(/^\/api\/admin\/product\/([^/]+)$/);
   if (m && method === 'PUT') return [adminProductUpdate, { id: decodeURIComponent(m[1]) }];
@@ -68,38 +108,14 @@ function matchApi(url, request) {
   if (m && method === 'DELETE') return [adminCategoryDelete, { id: decodeURIComponent(m[1]) }];
 
   m = p.match(/^\/api\/admin\/review\/([^/]+)$/);
-  if (m && method === 'PUT') return [adminReviewUpdate, { id: decodeURIComponent(m[1]) }];
   if (m && method === 'DELETE') return [adminReviewDelete, { id: decodeURIComponent(m[1]) }];
+  m = p.match(/^\/api\/admin\/story\/([^/]+)$/);
+  if (m && method === 'DELETE') return [adminStoryDelete, { id: decodeURIComponent(m[1]) }];
 
   m = p.match(/^\/api\/media\/([A-Za-z0-9_-]{20,80})$/);
   if (m && method === 'GET') return [getMedia, { key: decodeURIComponent(m[1]) }];
 
   return null;
-}
-
-
-function withSecurityHeaders(response) {
-  const headers = new Headers(response.headers);
-  headers.set('x-content-type-options', 'nosniff');
-  headers.set('x-frame-options', 'DENY');
-  headers.set('referrer-policy', 'strict-origin-when-cross-origin');
-  headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=()');
-  headers.set('cross-origin-opener-policy', 'same-origin');
-  headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
-  headers.set('content-security-policy', [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com",
-    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
-    "font-src 'self' https://cdnjs.cloudflare.com data:",
-    "img-src 'self' data: blob: https:",
-    "connect-src 'self'",
-    "media-src 'self' https: data: blob:",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'"
-  ].join('; '));
-  return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
 }
 
 export default {
@@ -112,17 +128,41 @@ export default {
       }
 
       const route = matchApi(url, request);
-      if (!route) return bad('API route not found.', 404);
+      if (!route) return addSecurityHeaders(bad('API route not found.', 404));
 
       try {
-        return withSecurityHeaders(await route[0](contextFor(request, env, executionCtx, route[1])));
+        return addSecurityHeaders(await route[0](contextFor(request, env, executionCtx, route[1])));
       } catch (error) {
         console.error('FoxShop API error:', error);
-        return bad('خطای داخلی سرور. تنظیمات Cloudflare D1 را بررسی کنید.', 500);
+        return addSecurityHeaders(bad('خطای داخلی سرور. تنظیمات Cloudflare D1 را بررسی کنید.', 500));
+      }
+    }
+
+    // Pretty product URLs are rewritten to the static product page without changing the visible URL.
+    if (request.method.toUpperCase() === 'GET') {
+      const productMatch = url.pathname.match(/^\/product\/([A-Za-z0-9_-]{1,120})$/);
+      if (productMatch) {
+        const rewritten = new URL(request.url);
+        rewritten.pathname = '/product.html';
+        rewritten.search = `?id=${encodeURIComponent(productMatch[1])}`;
+        const assetResponse = await env.ASSETS.fetch(new Request(rewritten.toString(), request));
+        if (!assetResponse.ok || !env.DB) return addSecurityHeaders(assetResponse);
+        try {
+          const store = await getStore(env.DB);
+          const product = store.products?.find(item => String(item.id) === String(productMatch[1]));
+          if (!product) return addSecurityHeaders(assetResponse);
+          const html = await assetResponse.text();
+          const seoHtml = buildProductSeoHtml(product, request.url);
+          const hydrated = html.replace(/<head[^>]*>/i, match => `${match}${seoHtml}`);
+          return addSecurityHeaders(new Response(hydrated, { status: 200, headers: { 'content-type':'text/html; charset=utf-8', 'cache-control':'no-store' } }));
+        } catch (seoError) {
+          console.error('FoxShop product SEO render error:', seoError);
+          return addSecurityHeaders(assetResponse);
+        }
       }
     }
 
     // Everything else is a static FoxShop file served by Cloudflare Workers Static Assets.
-    return withSecurityHeaders(await env.ASSETS.fetch(request));
+    return addSecurityHeaders(await env.ASSETS.fetch(request));
   }
 };

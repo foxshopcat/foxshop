@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FoxShop | پت شاپ تخصصی و اختصاصی گربه‌ها</title>
-  <meta name="description" content="فروشگاه آنلاین و تخصصی ملزومات، غذای خشک، کنسرو و اکسسوری گربه FoxShop با تضمین اصالت و امکان سفارش مستقیم در اینستاگرام و روبیکا و فروشگاه در تبریز">
+  <meta name="description" content="فروشگاه آنلاین و تخصصی ملزومات، غذای خشک، کنسرو و اکسسوری گربه FoxShop با تضمین اصالت و امکان سفارش مستقیم در روبیکا و اینستاگرام">
   <meta property="og:title" content="FoxShop | پت شاپ تخصصی گربه‌ها">
   <meta property="og:description" content="مرجع تخصصی تغذیه و سلامت گربه‌ها با ارسال سریع به سراسر کشور">
   
@@ -52,9 +52,7 @@
       <i class="fa-solid fa-phone text-[10px]"></i> پشتیبانی و مشاوره: ۰۹۹۳۴۱۹۱۷۷۴
     </a>
     <span class="hidden lg:inline text-white/60">|</span>
-    <span class="hidden lg:inline-flex items-center gap-1 text-white font-semibold">
-      <i class="fa-solid fa-location-dot text-[11px]"></i> پت‌شاپ FoxShop در تبریز
-    </span>
+    <span class="hidden lg:inline-flex items-center gap-1 text-white font-semibold"><i class="fa-solid fa-location-dot text-[11px]"></i> پت‌شاپ در تبریز</span>
   </div>
 
   <!-- Sticky Glassmorphism Header -->
@@ -293,7 +291,7 @@
         </div>
         <div>
           <h4 class="font-bold text-xs sm:text-sm text-slate-800">مشاوره تخصصی گربه</h4>
-          <p class="text-[11px] text-slate-400 mt-0.5">پاسخگویی در اینستاگرام و روبیکا و تلفن</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">پاسخگویی در روبیکا، اینستاگرام و تلفن</p>
         </div>
       </div>
 
@@ -322,6 +320,7 @@
       </div>
 
       <!-- Categories Container -->
+      <div class="mb-3 text-[11px] text-slate-500"><i class="fa-solid fa-location-dot text-orange-500"></i> پت‌شاپ FoxShop در شهر تبریز قرار دارد و ارسال از تبریز انجام می‌شود.</div>
       <div id="home-categories-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5 sm:gap-4">
         <!-- Rendered by JS -->
       </div>
@@ -431,9 +430,9 @@
 
         <div class="grid grid-cols-1 gap-2">
           <!-- Direct Rubika Order -->
-          <button onclick="openRubikaOrderModal()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-700 hover:brightness-110 text-white font-black text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2">
+          <button onclick="orderCartBy('rubika')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-700 hover:brightness-110 text-white font-black text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-comments text-base"></i>
-            <span>ثبت و ارسال سفارش در روبیکا (@baloot_cats)</span>
+            <span>کپی فاکتور و انتقال به روبیکا</span>
           </button>
           
           <!-- Direct Instagram Order -->
@@ -738,5 +737,6 @@
       `;
     }
   </script>
+  <script src="assets/js/storefront.js"></script>
 </body>
 </html>

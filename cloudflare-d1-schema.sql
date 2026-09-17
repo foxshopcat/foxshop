@@ -54,33 +54,6 @@ CREATE TABLE IF NOT EXISTS products (
   image_key TEXT NOT NULL DEFAULT '',
   short_desc TEXT NOT NULL DEFAULT '',
   full_desc TEXT NOT NULL DEFAULT '',
-  slug TEXT NOT NULL DEFAULT '',
-  brand TEXT NOT NULL DEFAULT '',
-  weight TEXT NOT NULL DEFAULT '',
-  flavor TEXT NOT NULL DEFAULT '',
-  age_range TEXT NOT NULL DEFAULT '',
-  goal TEXT NOT NULL DEFAULT '',
-  ingredients TEXT NOT NULL DEFAULT '',
-  nutrition_analysis TEXT NOT NULL DEFAULT '',
-  country_of_origin TEXT NOT NULL DEFAULT '',
-  barcode TEXT NOT NULL DEFAULT '',
-  expiration_date TEXT NOT NULL DEFAULT '',
-  usage TEXT NOT NULL DEFAULT '',
-  warranty TEXT NOT NULL DEFAULT '',
-  storage TEXT NOT NULL DEFAULT '',
-  authenticity TEXT NOT NULL DEFAULT '',
-  stock_quantity INTEGER NOT NULL DEFAULT 0,
-  min_stock INTEGER NOT NULL DEFAULT 0,
-  restock_time TEXT NOT NULL DEFAULT '',
-  rating REAL NOT NULL DEFAULT 0,
-  sales_count INTEGER NOT NULL DEFAULT 0,
-  extra_images TEXT NOT NULL DEFAULT '[]',
-  related_product_ids TEXT NOT NULL DEFAULT '[]',
-  complementary_product_ids TEXT NOT NULL DEFAULT '[]',
-  faq TEXT NOT NULL DEFAULT '[]',
-  is_consumable INTEGER NOT NULL DEFAULT 0,
-  shipping_note TEXT NOT NULL DEFAULT '',
-  return_policy TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (category_id) REFERENCES categories(id) ON UPDATE CASCADE
@@ -103,25 +76,9 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS product_reviews (
-  id TEXT PRIMARY KEY,
-  product_id TEXT NOT NULL,
-  customer_name TEXT NOT NULL,
-  body TEXT NOT NULL,
-  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  photo_url TEXT NOT NULL DEFAULT '',
-  approved INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id);
-CREATE INDEX IF NOT EXISTS idx_product_reviews_approved ON product_reviews(approved, created_at);
-
 -- Initial admin account.
--- Username: admin
--- Initial password: admin123
--- Seed hash uses PBKDF2-HMAC-SHA256 with 100,000 iterations (Workers production ceiling).
--- IMPORTANT: change the password immediately from the management panel.
+-- IMPORTANT: change the initial password immediately from the management panel.
+-- Seed hash uses PBKDF2-HMAC-SHA256 with 100,000 iterations.
 INSERT OR IGNORE INTO admins (id, username, password_hash, password_salt, created_at, updated_at)
 VALUES (
   1,
@@ -136,15 +93,13 @@ INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES
 ('shopName', '"FoxShop"', datetime('now')),
 ('phone', '"+98 993 419 1774"', datetime('now')),
 ('instagramUrl', '"https://www.instagram.com/foxshop.cat?stkn=MTRud2VncmpudDZpeg=="', datetime('now')),
-('aboutText', '"پت‌شاپ FoxShop در تبریز با هدف ارائه مرغوب‌ترین و اصیل‌ترین خوراک و ملزومات گربه‌ها فعالیت می‌کند."', datetime('now')),
-('shopCity', '"تبریز"', datetime('now')),
-('freeShippingThreshold', '2000000', datetime('now')),
-('shippingTable', '"هزینه و زمان ارسال بر اساس شهر و روش ارسال هنگام ثبت سفارش اعلام می‌شود."', datetime('now')),
-('returnPolicy', '"سیاست مرجوعی: کالا باید سالم، استفاده‌نشده و مطابق شرایط اعلام‌شده در فاکتور تحویل باشد."', datetime('now')),
-('storageText', '"شرایط نگهداری هر محصول در صفحه همان محصول درج می‌شود."', datetime('now')),
-('authenticityText', '"ضمانت اصالت کالا بر اساس فاکتور فروشگاه و شرایط اعلام‌شده در سفارش."', datetime('now')),
-('licenseText', '""', datetime('now')),
-('supportText', '"پشتیبانی و ثبت سفارش از طریق اینستاگرام و روبیکا انجام می‌شود."', datetime('now'));
+('storeLocation', '"تبریز، ایران"', datetime('now')) ,
+('freeShippingThreshold', '2500000', datetime('now')),
+('shippingCost', '120000', datetime('now')),
+('shippingDispatchTime', '"۱ تا ۲ روز کاری"', datetime('now')),
+('returnPolicy', '"در صورت ایراد یا مغایرت کالا، مطابق سیاست مرجوعی فروشگاه پیگیری می‌شود."', datetime('now')),
+('authenticityPolicy', '"ارائه فاکتور و امکان ارائه اطلاعات اصالت و تاریخ انقضا بر اساس کالای موجود."', datetime('now')),
+('aboutText', '"پت‌شاپ FoxShop با هدف ارائه مرغوب‌ترین و اصیل‌ترین خوراک و ملزومات گربه‌ها ایجاد شده است. ما اهمیت عشق و مراقبتی که نسبت به گربه‌تان دارید را درک می‌کنیم؛ از این رو تمامی محصولات ما دست‌چین شده از معتبرترین برندهای جهانی با تضمین کیفیت، اصالت و انقضای معتبر می‌باشند."', datetime('now'));
 
 INSERT OR IGNORE INTO categories(id,name,slug,image,image_key,icon,color,sort_order,created_at,updated_at) VALUES ('cat_dry_food','غذای خشک گربه','Dry Cat Food','https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=400&q=80&fm=webp','','fa-bowl-food','from-orange-500 to-amber-500',0,datetime('now'),datetime('now'));
 INSERT OR IGNORE INTO categories(id,name,slug,image,image_key,icon,color,sort_order,created_at,updated_at) VALUES ('cat_wet_food','کنسرو و پوچ لذیذ','Wet Food & Pouches','https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=400&q=80&fm=webp','','fa-fish','from-rose-500 to-pink-500',0,datetime('now'),datetime('now'));
@@ -160,3 +115,61 @@ INSERT OR IGNORE INTO products(id,name,category_id,stock_status,original_price,d
 INSERT OR IGNORE INTO products(id,name,category_id,stock_status,original_price,discount_percent,final_price,is_featured,is_best_seller,is_new,image,image_key,short_desc,full_desc,created_at,updated_at) VALUES ('fox_wanpy_creamy','پک تشویقی بستنی مایع وانپی (Wanpy) طعم مرغ و خرچنگ ۵ عددی','cat_treats','in_stock',220000,14,189000,1,1,0,'https://images.unsplash.com/photo-1561948955-570b270e7c36?auto=format&fit=crop&w=600&q=80','','تشویقی مایع فوق‌العاده لذیذ، غنی شده با تائورین و ویتامین‌ها','محبوب‌ترین میان‌وعده گربه‌ها برای دادن قرص، تقویت اشتها، آموزش و ایجاد رابطه عاطفی صمیمی با گربه.',datetime('now'),datetime('now'));
 INSERT OR IGNORE INTO products(id,name,category_id,stock_status,original_price,discount_percent,final_price,is_featured,is_best_seller,is_new,image,image_key,short_desc,full_desc,created_at,updated_at) VALUES ('fox_bentonite_litter','خاک بستر کربن‌دار سوپر کلامپینگ ون کت (Van Cat) وزن ۱۰ کیلوگرم','cat_litter','in_stock',620000,10,558000,0,1,0,'https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=600&q=80','','جذب بوی فوق‌العاده با کربن فعال، ۹۹.۵٪ بدون گرد و غبار','بنتونیت طبیعی سدیمی با قدرت کلامپینگ (گلوله‌شدن) فوری و محکم، آنتی‌باکتریال و بهداشتی برای حفاظت از دست و پای ظریف گربه.',datetime('now'),datetime('now'));
 INSERT OR IGNORE INTO products(id,name,category_id,stock_status,original_price,discount_percent,final_price,is_featured,is_best_seller,is_new,image,image_key,short_desc,full_desc,created_at,updated_at) VALUES ('fox_laser_toy','اسباب‌بازی لیزر اتوماتیک ۳۶۰ درجه گربه مدل Smart Paw','cat_toys','low_stock',790000,20,632000,1,0,1,'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=600&q=80','','دارای تایمر خودکار و ۳ حالت سرعت مختلف برای تحرک و سرگرمی گربه','حفظ شادابی و جلوگیری از اضافه وزن و افسردگی گربه‌های خانگی با الگوهای نوری تصادفی هوشمند. قابل شارژ از طریق کابل Type-C.',datetime('now'),datetime('now'));
+
+CREATE TABLE IF NOT EXISTS product_details (
+  product_id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL DEFAULT '',
+  brand TEXT NOT NULL DEFAULT '',
+  weight TEXT NOT NULL DEFAULT '',
+  volume TEXT NOT NULL DEFAULT '',
+  flavor TEXT NOT NULL DEFAULT '',
+  suitable_age TEXT NOT NULL DEFAULT '',
+  goals TEXT NOT NULL DEFAULT '',
+  ingredients TEXT NOT NULL DEFAULT '',
+  nutrition_analysis TEXT NOT NULL DEFAULT '',
+  country TEXT NOT NULL DEFAULT '',
+  barcode TEXT NOT NULL DEFAULT '',
+  expiry_date TEXT NOT NULL DEFAULT '',
+  usage_method TEXT NOT NULL DEFAULT '',
+  warranty TEXT NOT NULL DEFAULT '',
+  storage TEXT NOT NULL DEFAULT '',
+  authenticity TEXT NOT NULL DEFAULT '',
+  actual_stock INTEGER,
+  min_stock INTEGER,
+  restock_time TEXT NOT NULL DEFAULT '',
+  rating REAL NOT NULL DEFAULT 0,
+  review_count INTEGER NOT NULL DEFAULT 0,
+  sales_count INTEGER NOT NULL DEFAULT 0,
+  more_images_json TEXT NOT NULL DEFAULT '[]',
+  faq_json TEXT NOT NULL DEFAULT '[]',
+  related_ids_json TEXT NOT NULL DEFAULT '[]',
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  consumable INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_product_details_brand ON product_details(brand);
+
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id TEXT PRIMARY KEY,
+  product_id TEXT NOT NULL,
+  customer_name TEXT NOT NULL DEFAULT '',
+  rating INTEGER NOT NULL DEFAULT 5,
+  review_text TEXT NOT NULL DEFAULT '',
+  photo_url TEXT NOT NULL DEFAULT '',
+  approved INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved);
+
+CREATE TABLE IF NOT EXISTS customer_stories (
+  id TEXT PRIMARY KEY,
+  customer_name TEXT NOT NULL DEFAULT '',
+  cat_name TEXT NOT NULL DEFAULT '',
+  photo_url TEXT NOT NULL DEFAULT '',
+  quote TEXT NOT NULL DEFAULT '',
+  approved INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);

@@ -4,283 +4,42 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>محصول | FoxShop</title>
-  <meta id="meta-description" name="description" content="صفحه محصول FoxShop">
-  <meta id="meta-og-title" property="og:title" content="محصول | FoxShop">
-  <meta id="meta-og-description" property="og:description" content="صفحه محصول FoxShop">
-  <meta id="meta-og-image" property="og:image" content="">
-  <meta name="robots" content="index,follow">
-  <script src="https://cdn.tailwindcss.com" defer></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta name="description" content="مشخصات، قیمت و اطلاعات کامل محصول در پت‌شاپ FoxShop تبریز">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta property="og:type" content="product">
+  <meta property="og:site_name" content="FoxShop">
+  <meta property="og:title" content="محصول | FoxShop">
+  <meta property="og:description" content="مشخصات، قیمت و اطلاعات کامل محصول در پت‌شاپ FoxShop">
+  <meta property="og:image" content="">
   <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/store-enhancements.css">
-  <style>
-    .product-gallery-thumb.active{border-color:#f97316;box-shadow:0 0 0 2px #ffedd5}
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.tailwindcss.com" defer></script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
-  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-orange-100 shadow-sm">
-    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center gap-3">
-      <a href="index.html" class="shrink-0 brand-logo-trigger font-black text-xl text-slate-900">Fox<span class="text-orange-600">Shop</span></a>
-      <div class="hidden sm:flex flex-1 max-w-xl relative">
-        <input id="global-search-input" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 pr-10 text-xs outline-none focus:border-orange-500" placeholder="جستجوی غذا، مالت، خاک..." autocomplete="off">
-        <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-slate-400 text-xs"></i>
-      </div>
-      <div class="flex items-center gap-2 mr-auto">
-        <a href="products.html" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">فروشگاه</a>
-        <a href="https://rubika.ir/baloot_cats" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold">روبیکا</a>
-        <a href="https://www.instagram.com/foxshop.cat?stkn=MTRud2VncmpudDZpeg==" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-pink-50 text-pink-700 text-xs font-bold">اینستاگرام</a>
-        <button id="cart-trigger-btn" class="relative w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center shadow"><i class="fa-solid fa-cart-shopping"></i><span class="cart-count-badge hidden absolute -top-1.5 -left-1.5 min-w-5 h-5 px-1 rounded-full bg-rose-500 border-2 border-white text-[9px] font-black flex items-center justify-center">۰</span></button>
-      </div>
+<body class="paw-bg cat-paw-pattern min-h-screen flex flex-col antialiased selection:bg-orange-500 selection:text-white">
+  <div class="bg-gradient-to-r from-orange-600 via-amber-500 to-orange-600 text-white text-xs py-1.5 px-4 text-center font-bold">پت‌شاپ FoxShop در تبریز • ارسال و سفارش مستقیم</div>
+  <header class="sticky top-0 z-40 glass-nav border-b border-orange-100/80 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+      <a href="index.html" class="flex items-center gap-3"><span class="w-11 h-11 rounded-2xl bg-orange-50 border border-orange-200 flex items-center justify-center text-orange-600"><i class="fa-solid fa-paw text-lg"></i></span><span><b class="text-xl font-black text-slate-900">Fox<span class="text-orange-600">Shop</span></b><small class="block text-[10px] text-slate-400">پت‌شاپ تخصصی گربه‌ها • تبریز</small></span></a>
+      <div class="flex items-center gap-2"><a href="products.html" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-[11px] font-bold">فروشگاه</a><a href="favorites.html" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-rose-50 text-rose-700 text-[11px] font-bold">♥ علاقه‌مندی</a><button id="cart-trigger-btn" class="relative p-2.5 rounded-xl hover:bg-orange-50 text-slate-700"><i class="fa-solid fa-cart-shopping text-xl"></i><span class="cart-count-badge absolute -top-1 -right-1 w-5 h-5 bg-orange-600 text-white text-[10px] rounded-full hidden items-center justify-center">۰</span></button></div>
     </div>
   </header>
+  <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="product-page-root"></main>
 
-  <div id="product-page-root" class="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-9">
-    <div id="product-loading" class="py-24 text-center text-slate-400 text-sm">در حال آماده‌سازی صفحه محصول...</div>
-  </div>
-
-  <div id="cart-drawer" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm hidden">
-    <div class="absolute inset-y-0 left-0 max-w-md w-full bg-white shadow-2xl flex flex-col justify-between p-5">
-      <div class="flex items-center justify-between pb-4 border-b">
-        <h3 class="font-black">سبد خرید</h3>
-        <button id="close-cart-btn" class="w-9 h-9 rounded-full bg-slate-100"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+  <div id="cart-drawer" class="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm hidden">
+    <div class="absolute inset-y-0 left-0 max-w-md w-full bg-white p-6 flex flex-col shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b"><h2 class="font-black text-base">سبد خرید</h2><button id="close-cart-btn" class="w-9 h-9 rounded-xl bg-slate-100 text-slate-500"><i class="fa-solid fa-xmark"></i></button></div>
       <div id="cart-items-container" class="flex-1 overflow-y-auto py-4 space-y-3"></div>
-      <div id="cart-empty-view" class="hidden flex-1 items-center justify-center text-center text-slate-400 text-xs">سبد خرید خالی است.</div>
-      <div id="cart-footer-view" class="pt-4 border-t space-y-3">
-        <div class="flex items-center justify-between font-black"><span class="text-sm">مجموع</span><span><span id="cart-total-amount">۰</span> تومان</span></div>
-      </div>
+      <div id="cart-empty-view" class="flex-1 items-center justify-center text-center hidden"><div><i class="fa-solid fa-cat text-4xl text-orange-300"></i><p class="font-bold text-sm mt-3">سبد خرید خالی است</p></div></div>
+      <div id="cart-footer-view" class="pt-4 border-t space-y-3 hidden"><div class="flex justify-between text-sm"><b>مجموع:</b><span><b id="cart-total-amount">۰</b> تومان</span></div></div>
     </div>
   </div>
 
-  <footer class="bg-slate-950 text-slate-400 text-xs mt-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row justify-between gap-4">
-      <span>FoxShop • پت‌شاپ گربه در تبریز</span>
-      <div class="flex gap-4">
-        <a href="index.html" class="hover:text-white">خانه</a><a href="products.html" class="hover:text-white">محصولات</a><a href="contact.html" class="hover:text-white">تماس</a>
-      </div>
-    </div>
-  </footer>
-
+  <div class="max-w-7xl mx-auto px-4 pb-8 text-center text-[11px] text-slate-400">FoxShop — تبریز، ایران • سفارش از طریق دایرکت اینستاگرام یا روبیکا</div>
   <script src="assets/js/products-data.js"></script>
   <script src="assets/js/main.js"></script>
   <script>
-    let productPageReviews = [];
-
-    function productFromUrl() {
-      const key = new URLSearchParams(location.search).get("id") || "";
-      const normalized = decodeURIComponent(key).trim();
-      return products.find(p => String(p.id) === normalized || String(p.slug || "") === normalized) || null;
-    }
-
-    function productText(value, fallback="ثبت نشده") {
-      const v = String(value ?? "").trim();
-      return v ? escapeHtml(v) : `<span class="text-slate-300">${escapeHtml(fallback)}</span>`;
-    }
-
-    function productImages(prod) {
-      const all = [prod.image, ...(Array.isArray(prod.extraImages) ? prod.extraImages : [])]
-        .filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).slice(0,8);
-      return all.length ? all : [""];
-    }
-
-    function productStockLabel(prod) {
-      if (prod.stockStatus === "out_of_stock") return `<span class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-[10px] font-black">ناموجود</span>`;
-      if (Number(prod.stockQuantity) > 0) return `<span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">موجودی: ${toPersianDigits(prod.stockQuantity)} عدد</span>`;
-      if (prod.stockStatus === "low_stock") return `<span class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black">موجودی محدود</span>`;
-      return `<span class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black">موجود</span>`;
-    }
-
-    function productTrustMarkup(prod) {
-      return `
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-          <div class="rounded-2xl bg-emerald-50 border border-emerald-100 p-3 text-center"><i class="fa-solid fa-shield-heart text-emerald-600"></i><p class="text-[10px] font-black mt-1">اصالت</p><p class="text-[9px] text-slate-500 mt-1">${productText(prod.authenticity, "طبق فاکتور و سیاست فروشگاه")}</p></div>
-          <div class="rounded-2xl bg-blue-50 border border-blue-100 p-3 text-center"><i class="fa-solid fa-rotate-left text-blue-600"></i><p class="text-[10px] font-black mt-1">مرجوعی</p><p class="text-[9px] text-slate-500 mt-1">${productText(prod.returnPolicy || settings.returnPolicy, "طبق شرایط سفارش")}</p></div>
-          <div class="rounded-2xl bg-orange-50 border border-orange-100 p-3 text-center"><i class="fa-solid fa-truck-fast text-orange-600"></i><p class="text-[10px] font-black mt-1">ارسال</p><p class="text-[9px] text-slate-500 mt-1">${productText(prod.shippingNote || settings.shippingTable, "اعلام هنگام سفارش")}</p></div>
-          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 text-center"><i class="fa-solid fa-box-open text-slate-600"></i><p class="text-[10px] font-black mt-1">نگهداری</p><p class="text-[9px] text-slate-500 mt-1">${productText(prod.storage || settings.storageText, "در جای خشک و خنک")}</p></div>
-          ${settings.licenseText?`<div class="rounded-2xl bg-violet-50 border border-violet-100 p-3 text-center"><i class="fa-solid fa-certificate text-violet-600"></i><p class="text-[10px] font-black mt-1">مجوزها</p><p class="text-[9px] text-slate-500 mt-1">${productText(settings.licenseText, "طبق اطلاعات فروشگاه")}</p></div>`:''}
-        </div>`;
-    }
-
-    function productSpecsMarkup(prod) {
-      const specs = [
-        ["برند", prod.brand],["وزن/حجم",prod.weight],["طعم و تنوع",prod.flavor],["سن مناسب",prod.ageRange],
-        ["هدف مصرف",prod.goal],["کشور سازنده",prod.countryOfOrigin],["بارکد",prod.barcode],["تاریخ انقضا",prod.expirationDate],
-        ["روش مصرف",prod.usage],["ضمانت",prod.warranty],["ترکیبات",prod.ingredients],["آنالیز تغذیه‌ای",prod.nutritionAnalysis]
-      ];
-      return specs.map(([label,value])=>`<div class="rounded-2xl bg-white border border-slate-200 p-3"><span class="text-[9px] text-slate-400 block">${label}</span><div class="text-[11px] font-bold text-slate-700 mt-1">${productText(value)}</div></div>`).join("");
-    }
-
-    function productRelated(prod) {
-      const explicit = (Array.isArray(prod.relatedProductIds) ? prod.relatedProductIds : []).map(foxGetProduct).filter(Boolean);
-      const sameCat = products.filter(p => p.id !== prod.id && p.categoryId === prod.categoryId);
-      const list = [...explicit, ...sameCat].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i).slice(0,6);
-      if (!list.length) return `<div class="rounded-2xl bg-slate-50 p-5 text-xs text-slate-400">محصول مرتبطی برای نمایش ثبت نشده است.</div>`;
-      return `<div class="fox-horizontal-products">${list.map(p=>`<article class="min-w-[245px] max-w-[270px] bg-white rounded-3xl border border-slate-200 p-3"><a href="${foxProductHref(p)}"><img src="${escapeHtml(p.image)}" class="w-full aspect-square rounded-2xl bg-slate-50 object-contain" alt="${escapeHtml(p.name)}"><h3 class="font-black text-xs text-slate-800 line-clamp-2 mt-3">${escapeHtml(p.name)}</h3><p class="text-orange-600 font-black text-sm mt-2">${formatPrice(p.finalPrice)} تومان</p></a><button onclick="addToCart('${p.id}')" class="w-full mt-2 py-2.5 rounded-xl bg-orange-50 text-orange-700 font-black text-[10px]">افزودن به سبد</button></article>`).join("")}</div>`;
-    }
-
-    function productComplementary(prod) {
-      const explicit=(Array.isArray(prod.complementaryProductIds)?prod.complementaryProductIds:[]).map(foxGetProduct).filter(Boolean);
-      const related=products.filter(p=>p.id!==prod.id && (prod.goal && p.goal && p.goal===prod.goal)).slice(0,6);
-      const list=[...explicit,...related].filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i).slice(0,6);
-      if(!list.length) return '';
-      return `<section class="mt-7 space-y-3"><div class="flex items-center gap-2"><span class="w-2 h-7 rounded-full bg-orange-400"></span><h2 class="text-lg font-black">محصولات مکمل</h2></div><div class="fox-horizontal-products">${list.map(p=>`<article class="min-w-[245px] max-w-[270px] bg-white rounded-3xl border border-slate-200 p-3"><a href="${foxProductHref(p)}"><img src="${escapeHtml(p.image)}" class="w-full aspect-square rounded-2xl bg-slate-50 object-contain" alt="${escapeHtml(p.name)}"><h3 class="font-black text-xs text-slate-800 line-clamp-2 mt-3">${escapeHtml(p.name)}</h3><p class="text-orange-600 font-black text-sm mt-2">${formatPrice(p.finalPrice)} تومان</p></a><button onclick="addToCart('${p.id}')" class="w-full mt-2 py-2.5 rounded-xl bg-orange-50 text-orange-700 font-black text-[10px]">افزودن به سبد</button></article>`).join('')}</div></section>`;
-    }
-
-    function renderReviews(prod) {
-      const list = productPageReviews;
-      const stars = prod.rating ? `${toPersianDigits(prod.rating)} / ۵` : "بدون امتیاز";
-      return `
-        <section class="rounded-3xl bg-white border border-slate-200 p-5 sm:p-7 space-y-5">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div><span class="text-[10px] font-black text-rose-600">اثبات اجتماعی</span><h2 class="text-xl font-black text-slate-900 mt-1">نظر مشتری‌ها <span class="text-sm text-slate-400">(${toPersianDigits(list.length)})</span></h2></div>
-            <span class="font-black text-amber-500">${stars}</span>
-          </div>
-          <div class="space-y-3">${list.length ? list.map(r=>`<article class="rounded-2xl bg-slate-50 border border-slate-200 p-4 flex gap-3">${r.photoUrl?`<img src="${escapeHtml(r.photoUrl)}" class="w-16 h-16 rounded-2xl object-cover shrink-0" alt="">`:''}<div class="flex-1"><div class="flex items-center justify-between gap-2"><b class="text-xs">${escapeHtml(r.customerName)}</b><span class="text-amber-500 text-xs">${"★".repeat(Math.min(5,Number(r.rating)||0))}</span></div><p class="text-[11px] leading-6 text-slate-600 mt-2">${escapeHtml(r.body)}</p></div></article>`).join("") : `<div class="py-6 rounded-2xl border border-dashed border-slate-200 text-center text-xs text-slate-400">هنوز نظر تأییدشده‌ای برای این محصول ثبت نشده است.</div>`}</div>
-          <form id="review-form" class="rounded-2xl bg-orange-50/50 border border-orange-100 p-4 space-y-3">
-            <div class="flex items-center justify-between"><h3 class="font-black text-xs">ثبت تجربه خرید</h3><span class="text-[9px] text-slate-400">نظر شما بعد از بررسی نمایش داده می‌شود.</span></div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <input id="review-name" required maxlength="80" class="sm:col-span-1 rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none" placeholder="نام">
-              <select id="review-rating" class="rounded-xl border border-slate-200 px-3 py-2 text-xs bg-white"><option value="5">۵ ستاره</option><option value="4">۴ ستاره</option><option value="3">۳ ستاره</option><option value="2">۲ ستاره</option><option value="1">۱ ستاره</option></select>
-              <input id="review-photo" maxlength="1000" class="rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none" placeholder="لینک عکس مشتری (اختیاری)">
-            </div>
-            <textarea id="review-body" required minlength="8" maxlength="2000" rows="3" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs outline-none" placeholder="تجربه واقعی خودتان از محصول..."></textarea>
-            <button class="px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-black">ثبت نظر</button>
-          </form>
-        </section>`;
-    }
-
-    async function loadProductReviews(id) {
-      try {
-        const response = await fetch(`/api/reviews?productId=${encodeURIComponent(id)}`, {credentials:"same-origin"});
-        const data = await response.json();
-        productPageReviews = Array.isArray(data.reviews) ? data.reviews : [];
-      } catch { productPageReviews=[]; }
-    }
-
-    async function submitProductReview(event, prod) {
-      event.preventDefault();
-      const body = {
-        productId: prod.id,
-        customerName: document.getElementById("review-name")?.value.trim() || "",
-        rating: Number(document.getElementById("review-rating")?.value || 5),
-        photoUrl: document.getElementById("review-photo")?.value.trim() || "",
-        body: document.getElementById("review-body")?.value.trim() || ""
-      };
-      try {
-        const result = await fetch("/api/reviews", {method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
-        const data=await result.json();
-        if(!result.ok || data.ok===false) throw new Error(data.error||"ثبت نظر ناموفق بود.");
-        showToast(data.message||"نظر شما ثبت شد.", "success");
-        document.getElementById("review-form")?.reset();
-      } catch(err) { showToast(err.message||"ثبت نظر ناموفق بود.", "error"); }
-    }
-
-    function renderFaq(prod) {
-      const items=Array.isArray(prod.faq)?prod.faq.filter(x=>x&&typeof x==="object").slice(0,12):[];
-      if(!items.length) return `<div class="rounded-2xl bg-slate-50 p-5 text-xs text-slate-400">FAQ برای این محصول هنوز در پنل مدیریت تکمیل نشده است.</div>`;
-      return items.map((x,i)=>`<details class="rounded-2xl border border-slate-200 bg-white p-4"><summary class="cursor-pointer text-xs font-black text-slate-800">${escapeHtml(x.question||x.q||`سؤال ${i+1}`)}</summary><p class="text-[11px] leading-6 text-slate-600 mt-2">${escapeHtml(x.answer||x.a||"")}</p></details>`).join("");
-    }
-
-    function isConsumableProduct(prod) {
-      return Boolean(prod?.isConsumable) || /غذا|خاک|پوچ|کنسرو|تشویقی|مالت|litter|food|treat/i.test(`${prod?.name||''} ${prod?.goal||''}`);
-    }
-    function foxCopyProductLink() {
-      try { copyTextToClipboard(location.href); showToast('لینک محصول کپی شد؛ آماده اشتراک‌گذاری است.','success'); } catch(_) { showToast('کپی لینک انجام نشد.','error'); }
-    }
-
-    function watchStockProduct(id) {
-      try {
-        const raw=localStorage.getItem('foxshop_stock_watchlist');
-        const list=raw?JSON.parse(raw):[];
-        const exists=Array.isArray(list)&&list.some(x=>String(x.id)===String(id));
-        if(!exists){
-          const contact=prompt('برای یادآوری، شماره تماس یا ایمیل خود را وارد کنید (اختیاری):','')||'';
-          const next=(Array.isArray(list)?list:[]).filter(x=>String(x.id)!==String(id));
-          next.push({id:String(id),contact:String(contact).trim(),createdAt:new Date().toISOString()});
-          localStorage.setItem('foxshop_stock_watchlist',JSON.stringify(next.slice(-50)));
-        }
-        showToast('درخواست اطلاع موجودشدن روی این دستگاه ثبت شد. هنگام برگشت محصول، سایت به شما یادآوری می‌کند.','success');
-      } catch(e) { showToast('ثبت درخواست اطلاع انجام نشد.','error'); }
-    }
-
-    function renderProductPage(prod) {
-      if(!prod){document.getElementById("product-page-root").innerHTML=`<div class="py-24 text-center"><div class="w-16 h-16 rounded-2xl bg-rose-50 text-rose-500 mx-auto flex items-center justify-center text-2xl"><i class="fa-solid fa-cat"></i></div><h1 class="font-black text-slate-900 mt-4">محصول پیدا نشد</h1><a href="products.html" class="inline-block mt-4 px-5 py-2.5 rounded-xl bg-orange-600 text-white text-xs font-bold">بازگشت به فروشگاه</a></div>`;return;}
-      const imgs=productImages(prod);
-      const discount=Number(prod.discountPercent||0);
-      document.title=`${prod.name} | FoxShop`;
-      document.getElementById("meta-description").content=(prod.shortDesc||prod.fullDesc||`خرید ${prod.name} از FoxShop در تبریز`).slice(0,155);
-      document.getElementById("meta-og-title").content=document.title;
-      document.getElementById("meta-og-description").content=(prod.shortDesc||prod.fullDesc||"صفحه محصول FoxShop").slice(0,200);
-      document.getElementById("meta-og-image").content=prod.image||"";
-      const canonical=document.querySelector('link[rel="canonical"]')||document.head.appendChild(Object.assign(document.createElement("link"),{rel:"canonical"}));canonical.href=location.href.split("#")[0];
-
-      document.getElementById("product-page-root").innerHTML=`
-        <nav class="text-[10px] text-slate-400 mb-5 flex flex-wrap gap-2"><a href="index.html" class="hover:text-orange-600">خانه</a><span>/</span><a href="products.html?category=${encodeURIComponent(prod.categoryId)}" class="hover:text-orange-600">محصولات</a><span>/</span><b class="text-slate-600">${escapeHtml(prod.name)}</b></nav>
-        <div class="grid lg:grid-cols-2 gap-7 items-start">
-          <section class="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 lg:sticky lg:top-24">
-            <div class="aspect-square rounded-3xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100"><img id="product-main-image" src="${escapeHtml(imgs[0])}" alt="${escapeHtml(prod.name)}" class="w-full h-full object-contain p-5"></div>
-            <div class="flex gap-2 mt-3 overflow-x-auto pb-1">${imgs.map((src,i)=>`<button type="button" class="product-gallery-thumb ${i===0?"active":""} w-16 h-16 shrink-0 rounded-xl border-2 border-slate-200 bg-white p-1" onclick="selectProductImage(${i})"><img src="${escapeHtml(src)}" class="w-full h-full object-contain rounded-lg" alt=""></button>`).join("")}</div>
-          </section>
-          <section class="space-y-5">
-            <div class="flex flex-wrap items-center gap-2">${discount?`<span class="px-2.5 py-1 rounded-full bg-rose-500 text-white text-[10px] font-black">${toPersianDigits(discount)}٪ تخفیف</span>`:""}${productStockLabel(prod)}<span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">ارسال از تبریز</span></div>
-            <div><h1 class="text-2xl sm:text-3xl font-black text-slate-900 leading-relaxed">${escapeHtml(prod.name)}</h1><p class="text-xs text-slate-500 leading-7 mt-2">${escapeHtml(prod.shortDesc||"")}</p></div>
-            <div class="rounded-3xl border border-orange-100 bg-orange-50/70 p-5">
-              <div class="flex items-end justify-between gap-4"><div><span class="text-[10px] text-slate-400">قیمت</span>${discount?`<div class="text-xs line-through text-slate-400 mt-1">${formatPrice(prod.originalPrice)} تومان</div>`:""}</div><div class="text-left"><div class="text-2xl font-black text-slate-900">${formatPrice(prod.finalPrice)} <span class="text-xs text-slate-500 font-normal">تومان</span></div></div></div>
-              <div class="flex flex-wrap items-center gap-2 mt-4"><span class="text-amber-500 text-sm">${prod.rating?"★".repeat(Math.round(prod.rating)):"☆"}</span><span class="text-[10px] text-slate-500">${prod.rating?toPersianDigits(prod.rating)+" از ۵":"بدون امتیاز"} • ${toPersianDigits(prod.reviewCount||productPageReviews.length)} نظر</span></div>
-              <div class="grid grid-cols-2 gap-2 mt-4">
-                <button onclick="addToCart('${prod.id}')" ${prod.stockStatus==='out_of_stock'?'disabled':''} class="py-3 rounded-xl bg-orange-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-black shadow"><i class="fa-solid fa-cart-plus ml-1"></i>${prod.stockStatus==='out_of_stock'?'فعلاً ناموجود':'افزودن به سبد'}</button>
-                ${isConsumableProduct(prod)?`<button onclick="repeatProductPurchase('${prod.id}')" class="py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs font-black"><i class="fa-solid fa-rotate-right ml-1"></i>خرید تکراری</button>`:(prod.stockStatus==='out_of_stock'?`<button onclick="watchStockProduct('${prod.id}')" class="py-3 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 text-xs font-black"><i class="fa-regular fa-bell ml-1"></i>اطلاع از موجودی</button>`:`<button onclick="foxCopyProductLink()" class="py-3 rounded-xl bg-slate-50 text-slate-700 border border-slate-200 text-xs font-black"><i class="fa-regular fa-copy ml-1"></i>کپی لینک محصول</button>`)}
-              </div>
-              ${prod.stockStatus==='out_of_stock'?`<div class="mt-2 rounded-xl bg-rose-50 border border-rose-100 p-3 text-[10px] text-rose-800 leading-5">${prod.restockTime?`زمان تأمین احتمالی: <b>${escapeHtml(prod.restockTime)}</b> • `:''}با ثبت «اطلاع از موجودی»، سایت روی همین دستگاه برگشت کالا را یادآوری می‌کند.</div>`:''}
-              <div class="grid grid-cols-2 gap-2 mt-2">
-                <button onclick="foxToggleFavorite('${prod.id}')" class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-[11px] font-bold"><i class="fa-regular fa-heart ml-1"></i>علاقه‌مندی</button>
-                <button onclick="foxToggleCompare('${prod.id}')" class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-[11px] font-bold"><i class="fa-solid fa-code-compare ml-1"></i>مقایسه</button>
-              </div>
-            </div>
-            ${productTrustMarkup(prod)}
-          </section>
-        </div>
-
-        <section class="mt-7 rounded-3xl bg-white border border-slate-200 p-5 sm:p-7">
-          <div class="flex items-center gap-2 mb-4"><span class="w-2 h-7 rounded-full bg-orange-500"></span><h2 class="text-lg font-black">مشخصات محصول</h2></div>
-          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">${productSpecsMarkup(prod)}</div>
-          ${prod.fullDesc?`<div class="mt-5 pt-5 border-t"><h3 class="font-black text-sm">توضیحات کامل</h3><p class="text-xs leading-8 text-slate-600 mt-2 whitespace-pre-line">${escapeHtml(prod.fullDesc)}</p></div>`:""}
-        </section>
-
-        <section class="mt-7 space-y-3"><div class="flex items-center gap-2"><span class="w-2 h-7 rounded-full bg-indigo-500"></span><h2 class="text-lg font-black">FAQ</h2></div>${renderFaq(prod)}</section>
-
-        <section class="mt-7 space-y-3"><div class="flex items-center justify-between"><div class="flex items-center gap-2"><span class="w-2 h-7 rounded-full bg-emerald-500"></span><h2 class="text-lg font-black">محصولات مرتبط</h2></div></div>${productRelated(prod)}</section>
-        ${productComplementary(prod)}
-
-        <div class="mt-7">${renderReviews(prod)}</div>
-
-        <section class="mt-7 rounded-3xl bg-slate-900 text-white p-5 sm:p-7"><div class="grid md:grid-cols-3 gap-4"><div><i class="fa-solid fa-truck text-orange-400"></i><h3 class="font-black text-sm mt-2">زمان و هزینه ارسال</h3><p class="text-[11px] leading-6 text-white/70 mt-1">${escapeHtml(settings.shippingTable||"هنگام ثبت سفارش اعلام می‌شود.")}</p></div><div><i class="fa-solid fa-store text-orange-400"></i><h3 class="font-black text-sm mt-2">فروشگاه در تبریز</h3><p class="text-[11px] leading-6 text-white/70 mt-1">پشتیبانی و هماهنگی سفارش از طریق اینستاگرام و روبیکا انجام می‌شود.</p></div><div><i class="fa-solid fa-file-shield text-orange-400"></i><h3 class="font-black text-sm mt-2">مجوزها و ضمانت</h3><p class="text-[11px] leading-6 text-white/70 mt-1">${escapeHtml(settings.licenseText||"اطلاعات مجوزهای فروشگاه پس از تکمیل در پنل در اینجا نمایش داده می‌شود.")}</p></div></div></section>
-      `;
-
-      document.getElementById("review-form")?.addEventListener("submit",(e)=>submitProductReview(e,prod));
-      const schemaData={
-        "@context":"https://schema.org","@type":"Product","name":prod.name,"image":imgs.filter(Boolean),"description":prod.shortDesc||prod.fullDesc||"",
-        "brand":prod.brand?{"@type":"Brand","name":prod.brand}:undefined,
-        "sku":prod.barcode||prod.id,
-        "offers":{"@type":"Offer","priceCurrency":"IRR","price":String(Math.max(0,Math.round(Number(prod.finalPrice||0)*10))),"availability":prod.stockStatus==="out_of_stock"?"https://schema.org/OutOfStock":"https://schema.org/InStock","url":location.href},
-        ...(Number(prod.reviewCount||0)>0&&Number(prod.rating||0)>0?{"aggregateRating":{"@type":"AggregateRating","ratingValue":Number(prod.rating),"reviewCount":Number(prod.reviewCount)}}:{})
-      };
-      let ld=document.getElementById("product-jsonld");if(!ld){ld=document.createElement("script");ld.id="product-jsonld";ld.type="application/ld+json";document.head.appendChild(ld);}ld.textContent=JSON.stringify(schemaData);
-    }
-
-    function selectProductImage(index){const imgs=productImages(productFromUrl()),main=document.getElementById("product-main-image");if(main&&imgs[index])main.src=imgs[index];document.querySelectorAll(".product-gallery-thumb").forEach((b,i)=>b.classList.toggle("active",i===index));}
-    function repeatProductPurchase(id){addToCart(id,1);showToast("محصول برای خرید تکراری به سبد اضافه شد.","success");}
-
-    async function initPage(){
-      const product=productFromUrl();
-      if(!product)return renderProductPage(null);
-      await loadProductReviews(product.id);
-      renderProductPage(product);
-    }
-    window.watchStockProduct=watchStockProduct;
-    window.foxCopyProductLink=foxCopyProductLink;
-    window.selectProductImage=selectProductImage;
-    window.repeatProductPurchase=repeatProductPurchase;
+    function initPage() { /* storefront.js wraps this function after the product catalog is loaded */ }
   </script>
+  <script src="assets/js/storefront.js"></script>
 </body>
 </html>

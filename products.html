@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>فروشگاه و کاتالوگ محصولات | FoxShop</title>
-  <meta name="description" content="کاتالوگ کامل غذای خشک، کنسرو، پوچ، مکمل‌های درمانی و لوازم گربه در پت‌شاپ FoxShop با قیمت روز و سفارش در اینستاگرام و روبیکا">
+  <meta name="description" content="کاتالوگ کامل غذای خشک، کنسرو، پوچ، مکمل‌های درمانی و لوازم گربه در پت‌شاپ FoxShop تبریز با قیمت روز و سفارش در روبیکا و اینستاگرام">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com" defer></script>
@@ -243,14 +243,14 @@
           <span class="text-lg font-black text-slate-900"><span id="cart-total-amount">۰</span> تومان</span>
         </div>
         <div class="grid grid-cols-1 gap-2">
-          <button onclick="openRubikaOrderModal()" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2">
+          <button onclick="orderCartBy('rubika')" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-black text-xs sm:text-sm shadow-md flex items-center justify-center gap-2">
             <i class="fa-solid fa-comments text-base"></i>
-            <span>ثبت و ارسال سفارش در روبیکا (@baloot_cats)</span>
+            <span>کپی فاکتور و انتقال به روبیکا</span>
           </button>
-          <a href="https://www.instagram.com/foxshop.cat?stkn=MTRud2VncmpudDZpeg==" target="_blank" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs shadow flex items-center justify-center gap-2">
+          <button onclick="orderCartBy('instagram')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs shadow flex items-center justify-center gap-2">
             <i class="fa-brands fa-instagram text-sm"></i>
-            <span>سفارش در دایرکت اینستاگرام</span>
-          </a>
+            <span>کپی فاکتور و انتقال به اینستاگرام</span>
+          </button>
         </div>
       </div>
     </div>
@@ -534,5 +534,6 @@
       }).join("");
     }
   </script>
+  <script src="assets/js/storefront.js"></script>
 </body>
 </html>
