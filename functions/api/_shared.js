@@ -233,7 +233,8 @@ export async function ensureExtendedSchema(db) {
   await exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')`);
   await exec(`CREATE TABLE IF NOT EXISTS foxshop_migrations (id TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT '')`);
   await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('storeLocation','"تبریز، ایران"',datetime('now'))`);
-  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('freeShippingThreshold','2500000',datetime('now'))`);
+  await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('freeShippingThreshold','3000000',datetime('now'))`);
+  await exec(`UPDATE settings SET value='3000000', updated_at=datetime('now') WHERE key='freeShippingThreshold' AND value IN ('2500000','\"2500000\"')`);
   await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingCost','120000',datetime('now'))`);
   await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('shippingDispatchTime','"۱ تا ۲ روز کاری"',datetime('now'))`);
   await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('returnPolicy','"شرایط مرجوعی طبق سیاست ثبت‌شده فروشگاه و با بررسی وضعیت کالا انجام می‌شود."',datetime('now'))`);
