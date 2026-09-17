@@ -959,8 +959,8 @@ function renderAdminPortal() {
           <span>دسته‌بندی‌ها با تصویر WebP (${toPersianDigits(categories.length)})</span>
         </button>
         <button onclick="adminSwitchTab('content')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'content' ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
-          <i class="fa-solid fa-camera-retro"></i>
-          <span>محتوای مشتری</span>
+          <i class="fa-solid fa-comments"></i>
+          <span>نظرات کاربران</span>
         </button>
         <button onclick="adminSwitchTab('security')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'security' ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
           <i class="fa-solid fa-shield-halved"></i>
@@ -974,6 +974,7 @@ function renderAdminPortal() {
       </div>
     </div>
   `;
+  if (activeAdminTab === 'content') queueMicrotask(loadAdminPendingReviews);
 }
 
 function renderAdminTabContent() {
@@ -1381,39 +1382,48 @@ function renderAdminTabContent() {
 
 function renderAdminCustomerContent() {
   const allReviews = products.flatMap(p => (Array.isArray(p.reviews) ? p.reviews : []).map(r => ({ ...r, productName: p.name })));
-  const stories = Array.isArray(customerStories) ? customerStories : [];
   return `
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-        <h4 class="font-black text-xs text-slate-800 flex items-center gap-2"><i class="fa-solid fa-star text-amber-500"></i> ثبت نظر واقعی مشتری</h4>
-        <p class="text-[10px] text-slate-400 mt-1">فقط نظرات واقعی را پس از دریافت و تأیید درج کنید.</p>
-        <form onsubmit="adminAddReview(event)" class="space-y-2.5 mt-4">
-          <select id="admin-review-product" required class="w-full px-3 py-2 rounded-xl border bg-white text-xs">${products.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select>
-          <div class="grid grid-cols-2 gap-2"><input id="admin-review-name" required placeholder="نام مشتری" class="px-3 py-2 rounded-xl border bg-white text-xs"><select id="admin-review-rating" class="px-3 py-2 rounded-xl border bg-white text-xs"><option value="5">۵ ستاره</option><option value="4">۴ ستاره</option><option value="3">۳ ستاره</option><option value="2">۲ ستاره</option><option value="1">۱ ستاره</option></select></div>
-          <input id="admin-review-photo" placeholder="آدرس عکس مشتری (اختیاری)" class="w-full px-3 py-2 rounded-xl border bg-white text-xs" dir="ltr">
-          <textarea id="admin-review-text" rows="4" required placeholder="متن نظر مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"></textarea>
-          <button class="w-full py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">ثبت و نمایش نظر</button>
-        </form>
+    <div class="space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+          <h4 class="font-black text-xs text-slate-800 flex items-center gap-2"><i class="fa-solid fa-star text-amber-500"></i> ثبت نظر تاییدشده توسط مدیر</h4>
+          <p class="text-[10px] text-slate-400 mt-1">برای نظراتی که خارج از فرم عمومی دریافت کرده‌اید.</p>
+          <form onsubmit="adminAddReview(event)" class="space-y-3 mt-4">
+            <select id="admin-review-product" required class="w-full px-3 py-2 rounded-xl border bg-white text-xs">${products.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select>
+            <div class="grid grid-cols-2 gap-2"><input id="admin-review-name" required maxlength="80" placeholder="نام مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"><select id="admin-review-rating" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"><option value="5">۵ ستاره</option><option value="4">۴ ستاره</option><option value="3">۳ ستاره</option><option value="2">۲ ستاره</option><option value="1">۱ ستاره</option></select></div>
+            <input id="admin-review-photo" placeholder="آدرس عکس مشتری (اختیاری)" class="w-full px-3 py-2 rounded-xl border bg-white text-xs" dir="ltr">
+            <textarea id="admin-review-text" rows="4" required maxlength="3000" placeholder="متن نظر مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"></textarea>
+            <button class="w-full py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">ثبت نظر</button>
+          </form>
+        </div>
+        <div class="rounded-2xl p-4 bg-amber-50 border border-amber-200">
+          <div class="flex items-center justify-between gap-2"><div><h4 class="font-black text-xs text-amber-900">نظرات در انتظار بررسی</h4><p class="text-[10px] text-amber-700 mt-1">نظرهای ثبت‌شده توسط کاربران ابتدا اینجا می‌آیند.</p></div><button onclick="loadAdminPendingReviews()" class="px-3 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 text-[10px] font-bold"><i class="fa-solid fa-rotate"></i> بروزرسانی</button></div>
+          <div id="admin-pending-reviews" class="mt-4 space-y-2"><div class="p-3 rounded-xl bg-white/70 text-[10px] text-amber-700">در حال دریافت…</div></div>
+        </div>
       </div>
-      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-        <h4 class="font-black text-xs text-slate-800 flex items-center gap-2"><i class="fa-solid fa-camera text-emerald-500"></i> اثبات اجتماعی با عکس مشتری</h4>
-        <p class="text-[10px] text-slate-400 mt-1">عکس و تجربه واقعی مشتری را در صفحه اصلی نمایش دهید.</p>
-        <form onsubmit="adminAddStory(event)" class="space-y-2.5 mt-4">
-          <div class="grid grid-cols-2 gap-2"><input id="admin-story-name" required placeholder="نام مشتری" class="px-3 py-2 rounded-xl border bg-white text-xs"><input id="admin-story-cat" placeholder="نام گربه (اختیاری)" class="px-3 py-2 rounded-xl border bg-white text-xs"></div>
-          <input id="admin-story-photo" placeholder="آدرس عکس مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs" dir="ltr">
-          <textarea id="admin-story-quote" rows="4" required placeholder="تجربه کوتاه مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"></textarea>
-          <button class="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs">ثبت تجربه مشتری</button>
-        </form>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-4 lg:col-span-2">
-        <div class="flex items-center justify-between"><h4 class="font-black text-xs text-slate-800">نظرات تأییدشده (${toPersianDigits(allReviews.length)})</h4><span class="text-[10px] text-slate-400">در سایت فقط موارد تأییدشده دیده می‌شوند.</span></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">${allReviews.length ? allReviews.map(r => `<div class="p-3 rounded-2xl bg-slate-50 border"><div class="flex justify-between gap-2"><b class="text-[11px]">${escapeHtml(r.customerName || 'مشتری')}</b><button onclick="adminDeleteReview('${escapeHtml(r.id)}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></div><span class="text-[10px] text-slate-400 block mt-1">${escapeHtml(r.productName || '')} • ${'★'.repeat(Number(r.rating)||5)}</span><p class="text-[10px] text-slate-600 leading-6 mt-1">${escapeHtml(r.reviewText||'')}</p>${r.photoUrl ? `<img src="${escapeHtml(r.photoUrl)}" loading="lazy" class="mt-2 w-20 h-20 object-cover rounded-xl border">` : ''}</div>`).join('') : '<p class="text-[11px] text-slate-400">هنوز نظر تأییدشده‌ای ثبت نشده است.</p>'}</div>
-      </div>
-      <div class="bg-white border border-slate-200 rounded-2xl p-4 lg:col-span-2">
-        <div class="flex items-center justify-between"><h4 class="font-black text-xs text-slate-800">عکس و تجربه مشتری (${toPersianDigits(stories.length)})</h4><span class="text-[10px] text-slate-400">این بخش برای اثبات اجتماعی صفحه اصلی است.</span></div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">${stories.length ? stories.map(r => `<div class="rounded-2xl bg-slate-50 border p-3"><div class="flex items-center justify-between"><b class="text-[11px]">${escapeHtml(r.customerName||'مشتری')}</b><button onclick="adminDeleteStory('${escapeHtml(r.id)}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></div>${r.photoUrl?`<img src="${escapeHtml(r.photoUrl)}" loading="lazy" class="mt-2 w-full h-36 object-cover rounded-xl">`:''}<p class="text-[10px] text-slate-600 leading-6 mt-2">${escapeHtml(r.quote||'')}</p>${r.catName?`<span class="text-[9px] text-orange-600">${escapeHtml(r.catName)}</span>`:''}</div>`).join('') : '<p class="text-[11px] text-slate-400">هنوز تجربه‌ای ثبت نشده است.</p>'}</div>
+      <div>
+        <div class="flex items-center justify-between"><h4 class="font-black text-xs text-slate-800">نظرات تاییدشده (${toPersianDigits(allReviews.length)})</h4><span class="text-[10px] text-slate-400">فقط نظرات تاییدشده امتیاز محصول را تغییر می‌دهند.</span></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">${allReviews.length ? allReviews.map(r => `<div class="p-3 rounded-2xl bg-slate-50 border"><div class="flex justify-between gap-2"><b class="text-[11px]">${escapeHtml(r.customerName || 'مشتری')}</b><button onclick="adminDeleteReview('${escapeHtml(r.id)}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></div><span class="text-[10px] text-slate-400 block mt-1">${escapeHtml(r.productName || '')} • ${'★'.repeat(Number(r.rating)||5)}</span><p class="text-[10px] text-slate-600 leading-6 mt-1">${escapeHtml(r.reviewText||'')}</p>${r.photoUrl ? `<img src="${escapeHtml(r.photoUrl)}" loading="lazy" class="mt-2 w-20 h-20 object-cover rounded-xl border">` : ''}</div>`).join('') : '<p class="text-[11px] text-slate-400">هنوز نظر تاییدشده‌ای ثبت نشده است.</p>'}</div>
       </div>
     </div>`;
+}
+
+async function loadAdminPendingReviews() {
+  const host=document.getElementById('admin-pending-reviews');
+  if(!host) return;
+  try {
+    const data=await apiRequest('/admin/review',{method:'GET'});
+    const pending=(data.reviews||[]).filter(r=>!Number(r.approved));
+    host.innerHTML=pending.length?pending.map(r=>`<div class="p-3 rounded-2xl bg-white border border-amber-200"><div class="flex justify-between gap-2"><div><b class="text-[11px] text-slate-800">${escapeHtml(r.customerName||'مشتری')}</b><span class="block text-[9px] text-slate-400 mt-1">${escapeHtml(r.productName||'محصول')} • ${'★'.repeat(Math.min(5,Math.max(1,Number(r.rating)||5)))}</span></div><span class="text-[9px] text-amber-700">در انتظار</span></div><p class="text-[10px] text-slate-600 leading-6 mt-2">${escapeHtml(r.reviewText||'')}</p><div class="grid grid-cols-2 gap-2 mt-2"><button onclick="adminModerateReview('${escapeHtml(r.id)}',true)" class="py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black"><i class="fa-solid fa-check"></i> تایید</button><button onclick="adminModerateReview('${escapeHtml(r.id)}',false)" class="py-2 rounded-xl bg-rose-50 text-rose-700 text-[10px] font-black"><i class="fa-solid fa-trash"></i> حذف</button></div></div>`).join(''):'<div class="p-3 rounded-xl bg-white/70 text-[10px] text-amber-700">نظری در انتظار بررسی نیست.</div>';
+  } catch(err) { host.innerHTML=`<div class="p-3 rounded-xl bg-rose-50 text-rose-700 text-[10px]">${escapeHtml(err.message||'خطا در دریافت نظرات')}</div>`; }
+}
+
+async function adminModerateReview(id,approved){
+  try {
+    if(!approved && !confirm('این نظر حذف شود؟')) return;
+    const data=await apiRequest(`/admin/review/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({approved:!!approved})});
+    applyRemoteStore(data.store); renderAdminPortal(); showToast(approved?'نظر تایید و منتشر شد.':'نظر حذف شد.','success');
+  } catch(err){ showToast(err.message||'خطا در بررسی نظر','error'); }
 }
 
 async function adminAddReview(event) {
@@ -2127,8 +2137,8 @@ if (typeof window !== "undefined") {
   window.adminResetDefaults = adminResetDefaults;
   window.adminAddReview = adminAddReview;
   window.adminDeleteReview = adminDeleteReview;
-  window.adminAddStory = adminAddStory;
-  window.adminDeleteStory = adminDeleteStory;
+  window.loadAdminPendingReviews = loadAdminPendingReviews;
+  window.adminModerateReview = adminModerateReview;
   window.showToast = showToast;
   window.formatPrice = formatPrice;
   window.toPersianDigits = toPersianDigits;

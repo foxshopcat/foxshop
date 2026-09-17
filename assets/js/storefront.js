@@ -301,7 +301,6 @@
         if (sortVal === 'price-asc') filtered.sort((a,b) => a.finalPrice-b.finalPrice);
         else if (sortVal === 'price-desc') filtered.sort((a,b) => b.finalPrice-a.finalPrice);
         else if (sortVal === 'discount') filtered.sort((a,b) => (b.discountPercent||0)-(a.discountPercent||0));
-        else if (sortVal === 'bestseller') filtered.sort((a,b) => (b.isBestSeller?1:0)-(a.isBestSeller?1:0));
         container.innerHTML = filtered.map(enhancedProductCard).join('');
         if (emptyView) emptyView.classList.toggle('hidden', filtered.length > 0);
         updateWishlistUI(); updateCompareBar(); addTrustToExistingPriceAreas();
@@ -364,10 +363,6 @@
       const featured = products.filter(p => p.isFeatured);
       return featured.length ? featured : products.slice(0, 4);
     });
-    wrapHome('renderHomeBestSellers', 'home-bestseller-grid', products => {
-      const best = products.filter(p => p.isBestSeller || p.isNew);
-      return best.length ? best : products.slice(4, 8);
-    });
   }
 
   function enhanceCatalogCards() {
@@ -385,41 +380,16 @@
     const home = document.getElementById('home-categories-grid');
     if (!home || document.getElementById('fox-home-commerce')) return;
     const products = Array.isArray(window.products) ? window.products : [];
-    const root = document.createElement('div'); root.id='fox-home-commerce'; root.className='space-y-8 mt-2';
+    const root = document.createElement('div'); root.id='fox-home-commerce'; root.className='space-y-10 mt-2';
     const today = products.filter(p=>Number(p.discountPercent)>0).sort((a,b)=>(b.discountPercent||0)-(a.discountPercent||0)).slice(0,8);
-    const best = products.filter(p=>p.isBestSeller).slice(0,8);
-    const fresh = products.filter(p=>p.isNew).slice(0,8);
     root.innerHTML = `
-      <section class="space-y-4"><div class="flex items-center justify-between"><h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2"><span class="w-2 h-7 rounded-full bg-rose-500"></span>تخفیف امروز</h2><a href="products.html?discount=1" class="text-xs font-bold text-orange-600">مشاهده همه</a></div><div data-home-row="today" class="flex gap-4 overflow-x-auto pb-2 custom-scroll snap-x snap-mandatory"></div></section>
-      <section class="space-y-4"><div class="flex items-center justify-between"><h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2"><span class="w-2 h-7 rounded-full bg-amber-500"></span>پرفروش‌ها</h2></div><div data-home-row="best" class="flex gap-4 overflow-x-auto pb-2 custom-scroll snap-x snap-mandatory"></div></section>
-      <section class="space-y-4"><div class="flex items-center justify-between"><h2 class="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2"><span class="w-2 h-7 rounded-full bg-emerald-500"></span>تازه‌رسیده‌ها</h2></div><div data-home-row="fresh" class="flex gap-4 overflow-x-auto pb-2 custom-scroll snap-x snap-mandatory"></div></section>
-      <section class="rounded-3xl border border-orange-100 bg-white p-5 sm:p-7 shadow-sm"><div class="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><span class="text-[11px] font-black text-orange-600">پیشنهاد خرید هوشمند</span><h2 class="text-xl sm:text-2xl font-black text-slate-900 mt-1">بسته آماده برای نیازهای روزمره</h2><p class="text-xs text-slate-500 mt-1">بچه‌گربه، ضد گلوله مو و خاک ماهانه را با یک کلیک به سبد اضافه کنید.</p></div><div class="flex gap-2 flex-wrap"><button onclick="addSmartBundle('kitten')" class="px-4 py-2.5 rounded-xl bg-orange-50 text-orange-700 font-bold text-xs">🐱 بسته بچه‌گربه</button><button onclick="addSmartBundle('hairball')" class="px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold text-xs">🧴 ضد گلوله مو</button><button onclick="addSmartBundle('litter')" class="px-4 py-2.5 rounded-xl bg-blue-50 text-blue-700 font-bold text-xs">📦 خاک ماهانه</button></div></div></section>
-      <section class="rounded-3xl bg-slate-900 text-white p-5 sm:p-7"><div class="flex flex-col md:flex-row md:items-center justify-between gap-4"><div><span class="text-[11px] text-orange-300 font-black">انتخاب دقیق‌تر</span><h2 class="text-xl sm:text-2xl font-black mt-1">کوییز ۲ دقیقه‌ای غذای مناسب گربه</h2><p class="text-xs text-white/60 mt-1">سن، وزن، عقیم‌شدن، حساسیت و بودجه را بررسی می‌کنیم و ۳ پیشنهاد قابل خرید می‌دهیم.</p></div><a href="quiz.html" class="px-5 py-3 rounded-2xl bg-orange-500 text-white font-black text-xs shadow-lg">شروع کوییز</a></div></section>
-      <section class="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7"><div class="flex items-center justify-between"><div><h2 class="text-xl sm:text-2xl font-black text-slate-900">اعتماد قابل مشاهده</h2><p class="text-xs text-slate-500 mt-1">فروشگاه در تبریز؛ ارسال و سیاست‌ها شفاف کنار محصول نمایش داده می‌شوند.</p></div><span class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fa-solid fa-shield-heart text-xl"></i></span></div><div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5"><div class="p-3 rounded-2xl bg-slate-50"><b class="block text-xs text-slate-800">اصالت</b><span class="text-[10px] text-slate-500">اطلاعات و فاکتور قابل ارائه</span></div><div class="p-3 rounded-2xl bg-slate-50"><b class="block text-xs text-slate-800">مرجوعی</b><span class="text-[10px] text-slate-500">سیاست شفاف فروشگاه</span></div><div class="p-3 rounded-2xl bg-slate-50"><b class="block text-xs text-slate-800">ارسال</b><span class="text-[10px] text-slate-500">زمان و هزینه کنار قیمت</span></div><div class="p-3 rounded-2xl bg-slate-50"><b class="block text-xs text-slate-800">نگهداری</b><span class="text-[10px] text-slate-500">روش نگهداری هر کالا</span></div></div></section>
-      <section class="rounded-3xl border border-slate-200 bg-white p-5 sm:p-7"><div class="flex items-center justify-between"><div><h2 class="text-xl sm:text-2xl font-black text-slate-900">گربه‌های مشتری‌ها</h2><p class="text-xs text-slate-500 mt-1">فقط عکس و تجربه واقعیِ ثبت‌شده توسط مشتری نمایش داده می‌شود.</p></div><i class="fa-solid fa-camera-retro text-2xl text-orange-500"></i></div><div data-customer-stories class="mt-5 flex gap-4 overflow-x-auto pb-2 custom-scroll"></div></section>`;
+      <section class="space-y-4 fox-showcase-section"><div class="flex items-end justify-between gap-3"><div><span class="fox-eyebrow">پیشنهادهای این هفته</span><h2 class="text-xl sm:text-2xl font-black text-slate-900 mt-1">تخفیف‌های امروز</h2></div><a href="products.html?discount=1" class="fox-text-link">مشاهده همه <i class="fa-solid fa-arrow-left"></i></a></div><div data-home-row="today" class="flex gap-4 overflow-x-auto pb-3 custom-scroll snap-x snap-mandatory"></div></section>
+      <section class="fox-quiz-banner"><div><span class="fox-eyebrow fox-eyebrow-light">انتخاب دقیق‌تر</span><h2 class="text-xl sm:text-2xl font-black mt-1">غذای مناسب گربه‌ات را سریع‌تر پیدا کن</h2><p class="text-xs text-white/65 mt-2 max-w-2xl leading-7">سن، وزن، عقیم‌شدن، حساسیت و بودجه را مشخص کن تا سه پیشنهاد قابل خرید از موجودی فعلی فروشگاه ببینی.</p></div><a href="quiz.html" class="fox-light-button">شروع کوییز ۲ دقیقه‌ای <i class="fa-solid fa-arrow-left"></i></a></section>`;
     home.closest('section')?.after(root);
-    const stories = Array.isArray(window.customerStories) ? window.customerStories : [];
-    const storyWrap = root.querySelector('[data-customer-stories]');
-    if (storyWrap) storyWrap.innerHTML = stories.length ? stories.map(story => `<article class="min-w-[260px] max-w-[300px] rounded-2xl bg-slate-50 border border-slate-200 p-3">${story.photoUrl ? `<img src="${safeText(story.photoUrl)}" loading="lazy" class="w-full h-44 object-cover rounded-xl" alt="${safeText(story.catName||'گربه مشتری')}">` : ''}<div class="mt-3"><b class="text-xs text-slate-800">${safeText(story.customerName||'مشتری')}</b>${story.catName?`<span class="text-[10px] text-slate-400 mr-2">• ${safeText(story.catName)}</span>`:''}<p class="text-[11px] text-slate-600 leading-6 mt-1">${safeText(story.quote||'')}</p></div></article>`).join('') : '<div class="w-full rounded-2xl bg-slate-50 border border-dashed border-slate-200 p-5 text-center text-xs text-slate-400">هنوز عکس یا تجربه تأییدشده‌ای ثبت نشده است؛ برای حفظ اعتماد، اطلاعات ساختگی نمایش داده نمی‌شود.</div>';
-
-    const rows={today,best,fresh};
-    root.querySelectorAll('[data-home-row]').forEach(row=>{
-      const key=row.dataset.homeRow;
-      row.innerHTML=(rows[key]||[]).map(p=>`<div class="min-w-[270px] max-w-[270px] snap-start">${enhancedProductCard(p)}</div>`).join('');
-      if (!(rows[key]||[]).length) row.innerHTML='<div class="w-full text-xs text-slate-400 py-5">هنوز محصولی برای این بخش ثبت نشده است.</div>';
-    });
+    const row=root.querySelector('[data-home-row="today"]');
+    if (row) row.innerHTML = today.length ? today.map(p=>`<div class="min-w-[270px] max-w-[270px] snap-start">${enhancedProductCard(p)}</div>`).join('') : '<div class="w-full text-xs text-slate-400 py-5">در حال حاضر محصول تخفیف‌داری ثبت نشده است.</div>';
   }
 
-  window.addSmartBundle = function(type){
-    const products=Array.isArray(window.products)?window.products:[];
-    let picks=[];
-    if(type==='kitten') picks=products.filter(p=>/kitten|بچه گربه/i.test(p.name)).slice(0,2);
-    if(type==='hairball') picks=products.filter(p=>/malt|مالت|مو/i.test(`${p.name} ${p.shortDesc}`)).slice(0,2);
-    if(type==='litter') picks=products.filter(p=>p.categoryId==='cat_litter' || /خاک/.test(p.name)).slice(0,2);
-    if(!picks.length) picks=products.filter(p=>p.isBestSeller).slice(0,2);
-    picks.forEach(p=>window.addToCart(p.id, type==='litter'?2:1));
-    toast('بسته آماده به سبد خرید اضافه شد.');
-  };
 
   function addTrustToExistingPriceAreas() {
     document.querySelectorAll('.price-text, [id$="detail-modal-price"]').forEach(el=>{
@@ -462,10 +432,10 @@
       <section class="grid grid-cols-1 md:grid-cols-3 gap-3"><div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-100"><b class="text-xs text-emerald-800">ضمانت اصالت</b><p class="text-[11px] text-emerald-700 mt-1 leading-6">${safeText(x.authenticity||'اطلاعات اصالت و تاریخ انقضا برای کالای موجود قابل ارائه است.')}</p></div><div class="p-4 rounded-2xl bg-blue-50 border border-blue-100"><b class="text-xs text-blue-800">ارسال و هزینه</b><p class="text-[11px] text-blue-700 mt-1 leading-6">ارسال از ${SHOP_LOCATION}. ${safeText(window.settings?.shippingDispatchTime||'۱ تا ۲ روز کاری')} — هزینه پایه ${window.formatPrice(Number(window.settings?.shippingCost)||120000)} تومان.</p></div><div class="p-4 rounded-2xl bg-amber-50 border border-amber-100"><b class="text-xs text-amber-800">مرجوعی و نگهداری</b><p class="text-[11px] text-amber-700 mt-1 leading-6">${safeText(window.settings?.returnPolicy||'سیاست مرجوعی فروشگاه را قبل از سفارش بررسی کنید.')} ${x.storage?`نگهداری: ${safeText(x.storage)}`:''}</p></div></section>
       <section class="bg-white rounded-3xl border border-slate-200 p-5"><h2 class="text-base font-black mb-3">توضیحات</h2><p class="text-xs text-slate-600 leading-8 whitespace-pre-line">${safeText(p.fullDesc||p.shortDesc||'')}</p></section>
       <section class="bg-white rounded-3xl border border-slate-200 p-5"><h2 class="text-base font-black mb-4">پرسش‌های متداول</h2>${(Array.isArray(x.faq)&&x.faq.length)?x.faq.map((f,i)=>`<details class="border-b border-slate-100 py-3"><summary class="cursor-pointer font-bold text-xs text-slate-800">${safeText(f.question||f.q||'سؤال متداول')}</summary><p class="text-xs text-slate-500 leading-7 mt-2">${safeText(f.answer||f.a||'')}</p></details>`).join(''):'<p class="text-xs text-slate-400">FAQ این محصول هنوز تکمیل نشده است.</p>'}</section>
-      <section class="bg-white rounded-3xl border border-slate-200 p-5"><div class="flex items-center justify-between gap-3"><h2 class="text-base font-black">نظرات و عکس مشتری‌ها</h2><span class="text-[10px] text-slate-400">${reviews.length?window.toPersianDigits(reviews.length)+' نظر تاییدشده':'هنوز نظر تاییدشده‌ای ثبت نشده'}</span></div><div class="mt-4 space-y-3">${reviews.length?reviews.map(r=>`<div class="p-3 rounded-2xl bg-slate-50 border"><div class="flex items-center justify-between"><b class="text-xs">${safeText(r.customerName||'مشتری')}</b><span class="text-amber-500 text-xs">${'★'.repeat(Math.min(5,Math.max(1,Number(r.rating)||5)))}</span></div><p class="text-[11px] text-slate-600 leading-7 mt-1">${safeText(r.reviewText)}</p>${r.photoUrl?`<img src="${safeText(r.photoUrl)}" loading="lazy" class="mt-2 w-28 h-28 object-cover rounded-xl border">`:''}</div>`).join(''):'<div class="p-5 rounded-2xl bg-slate-50 text-center"><p class="text-xs text-slate-400">برای حفظ اعتبار فروشگاه، فقط نظر و عکس واقعیِ تأییدشده نمایش داده می‌شود.</p></div>'}</div></section>
+      <section class="fox-review-section"><div class="fox-review-heading"><div><span class="fox-eyebrow">نظر خریداران</span><h2>تجربه‌ات از این محصول را ثبت کن</h2><p>امتیاز و نظر شما بعد از بررسی فروشگاه منتشر می‌شود تا کیفیت نظرات حفظ شود.</p></div><div class="fox-rating-summary"><strong>${x.rating?window.toPersianDigits(x.rating.toFixed(1)):'—'}</strong><span>${x.rating?'★★★★★':'☆ ☆ ☆ ☆ ☆'}</span><small>${x.reviewCount?window.toPersianDigits(x.reviewCount)+' نظر تاییدشده':'هنوز نظری ثبت نشده'}</small></div></div><div class="fox-review-layout"><form id="fox-product-review-form" class="fox-review-form" novalidate><input type="hidden" name="productId" value="${safeText(p.id)}"><input type="hidden" name="rating" value="5"><input type="text" name="website" tabindex="-1" autocomplete="off" class="fox-honeypot" aria-hidden="true"><label><span>نام نمایشی</span><input name="customerName" maxlength="80" required placeholder="مثلاً علی"></label><div><span class="fox-review-label">امتیاز</span><div class="fox-stars" aria-label="انتخاب امتیاز">${renderReviewStars(5)}</div></div><label><span>نظر شما</span><textarea name="reviewText" maxlength="2000" minlength="5" rows="5" required placeholder="چه چیزی درباره این محصول برایت مفید بود؟"></textarea></label><button type="submit" class="fox-review-submit"><i class="fa-solid fa-paper-plane"></i> ثبت نظر و امتیاز</button><div data-review-status class="fox-review-status" aria-live="polite">اطلاعات تماس لازم نیست؛ فقط نام نمایشی و نظر شما ثبت می‌شود.</div></form><div class="fox-approved-reviews">${reviews.length?reviews.map(r=>`<article class="fox-review-card"><div class="fox-review-card-top"><div><b>${safeText(r.customerName||'مشتری')}</b><span>${window.toPersianDigits(new Date(r.createdAt||Date.now()).toLocaleDateString('fa-IR'))}</span></div><div class="fox-review-stars">${'★'.repeat(Math.min(5,Math.max(1,Number(r.rating)||5)))}</div></div><p>${safeText(r.reviewText)}</p></article>`).join(''):'<div class="fox-empty-review"><i class="fa-regular fa-comment-dots"></i><p>هنوز نظر تاییدشده‌ای ثبت نشده است.</p><span>اولین تجربه این محصول می‌تواند برای خریداران بعدی مفید باشد.</span></div>'}</div></div></section>
       <section class="space-y-4"><div class="flex items-center justify-between"><h2 class="text-base font-black">محصولات مرتبط</h2><a href="products.html" class="text-xs text-orange-600 font-bold">مشاهده فروشگاه</a></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">${related.map(q=>enhancedProductCard(q)).join('')}</div></section>
     </div>`;
-    updateWishlistUI(); updateRestockButtons(); updateCompareBar();
+    updateWishlistUI(); updateRestockButtons(); updateCompareBar(); bindReviewForm();
     document.title=`${p.name} | FoxShop`;
     setMeta('description', (p.shortDesc||p.fullDesc||'').slice(0,155));
   }
@@ -516,11 +486,105 @@
     });
   }
 
+  function injectGlobalSearch(){
+    const existing=document.getElementById('fox-global-search-trigger');
+    if(existing) return;
+    const target=document.querySelector('header .glass-nav') || document.querySelector('header');
+    const cart=document.getElementById('cart-trigger-btn');
+    const actionWrap=cart?.parentElement || target?.querySelector('.max-w-7xl > div:last-child') || target?.querySelector('.max-w-7xl > div');
+    if(!target || !actionWrap) return;
+    const btn=document.createElement('button');
+    btn.id='fox-global-search-trigger';
+    btn.type='button';
+    btn.className='fox-search-icon-button';
+    btn.setAttribute('aria-label','جستجوی محصول');
+    btn.title='جستجوی محصول';
+    btn.innerHTML='<i class="fa-solid fa-magnifying-glass"></i>';
+    actionWrap.insertBefore(btn, actionWrap.firstElementChild || null);
+    btn.addEventListener('click',openGlobalSearch);
+
+    const input=document.getElementById('global-search-input');
+    if(input && !input.dataset.foxSearchBound){
+      input.dataset.foxSearchBound='1';
+      input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); submitGlobalSearch(input.value); } });
+    }
+    const desktopBtn=input?.parentElement?.querySelector('button');
+    if(desktopBtn && !desktopBtn.dataset.foxSearchBound){
+      desktopBtn.dataset.foxSearchBound='1';
+      desktopBtn.type='button';
+      desktopBtn.addEventListener('click',()=>submitGlobalSearch(input.value));
+    }
+  }
+
+  function submitGlobalSearch(value){
+    const q=String(value||'').trim();
+    if(!q){ openGlobalSearch(); return; }
+    window.location.href=`products.html?search=${encodeURIComponent(q)}`;
+  }
+
+  function openGlobalSearch(){
+    let modal=document.getElementById('fox-global-search');
+    if(!modal){
+      modal=document.createElement('div'); modal.id='fox-global-search'; modal.className='fox-search-modal hidden';
+      modal.innerHTML='<div class="fox-search-dialog" role="dialog" aria-modal="true" aria-label="جستجوی محصول"><button type="button" class="fox-search-close" aria-label="بستن"><i class="fa-solid fa-xmark"></i></button><div class="fox-search-kicker"><span class="fox-search-orb"><i class="fa-solid fa-paw"></i></span><span>جستجوی FoxShop</span></div><h2>دنبال چی می‌گردی؟</h2><p>نام، برند، وزن، طعم یا نیاز گربه را وارد کن.</p><form class="fox-search-form"><div class="fox-search-field"><i class="fa-solid fa-magnifying-glass"></i><input id="fox-search-modal-input" autocomplete="off" placeholder="مثلاً رویال کنین، خاک، بچه‌گربه..." /></div><button type="submit" class="fox-search-submit">جستجوی محصولات</button></form><div class="fox-search-hints"><button type="button" data-search-hint="غذای بچه‌گربه">بچه‌گربه</button><button type="button" data-search-hint="Royal Canin">Royal Canin</button><button type="button" data-search-hint="خاک گربه">خاک گربه</button><button type="button" data-search-hint="مالت">مالت</button></div></div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click',e=>{ if(e.target===modal) closeGlobalSearch(); });
+      modal.querySelector('.fox-search-close').addEventListener('click',closeGlobalSearch);
+      modal.querySelector('.fox-search-form').addEventListener('submit',e=>{e.preventDefault();submitGlobalSearch(modal.querySelector('#fox-search-modal-input').value);});
+      modal.querySelectorAll('[data-search-hint]').forEach(b=>b.addEventListener('click',()=>{modal.querySelector('#fox-search-modal-input').value=b.dataset.searchHint; submitGlobalSearch(b.dataset.searchHint);}));
+      document.addEventListener('keydown',e=>{if(e.key==='Escape') closeGlobalSearch();});
+    }
+    modal.classList.remove('hidden');
+    requestAnimationFrame(()=>modal.classList.add('is-open'));
+    setTimeout(()=>modal.querySelector('#fox-search-modal-input')?.focus(),30);
+  }
+  function closeGlobalSearch(){
+    const modal=document.getElementById('fox-global-search'); if(!modal) return;
+    modal.classList.remove('is-open'); setTimeout(()=>modal.classList.add('hidden'),160);
+  }
+
+  function injectTrustFooter(){
+    document.querySelectorAll('footer').forEach(footer=>{
+      if(footer.querySelector('[data-fox-visible-trust]')) return;
+      const trust=document.createElement('section'); trust.dataset.foxVisibleTrust='1'; trust.className='fox-trust-footer'; trust.innerHTML='<div class="fox-trust-shell"><div class="fox-trust-heading"><div><span class="fox-eyebrow">شفافیت قبل از خرید</span><h2>اعتماد قابل مشاهده در FoxShop</h2><p>فروشگاه در تبریز؛ اطلاعات ارسال، مرجوعی، اصالت و نگهداری را قبل از سفارش روشن می‌کنیم.</p></div><div class="fox-trust-badge"><i class="fa-solid fa-shield-heart"></i><span>خرید آگاهانه</span></div></div><div class="fox-trust-grid"><article><span><i class="fa-solid fa-certificate"></i></span><div><b>اصالت و تاریخ انقضا</b><p>اطلاعاتی که برای هر محصول ثبت و قابل ارائه باشد، در همان صفحه محصول نمایش داده می‌شود.</p></div></article><article><span><i class="fa-solid fa-truck-fast"></i></span><div><b>ارسال و هزینه روشن</b><p>محل فروشگاه: تبریز. زمان آماده‌سازی و هزینه پایه ارسال از قبل مشخص است.</p></div></article><article><span><i class="fa-solid fa-rotate-left"></i></span><div><b>سیاست مرجوعی</b><p>شرایط مرجوعی فروشگاه در کنار اطلاعات محصول قابل مشاهده است و مورد مبهمی پنهان نمی‌ماند.</p></div></article><article><span><i class="fa-solid fa-lock"></i></span><div><b>پرداخت و سفارش امن‌تر</b><p>سبد خرید را می‌توان به‌صورت فاکتور کپی کرد و در دایرکت اینستاگرام یا روبیکا برای ثبت نهایی فرستاد.</p></div></article></div><div class="fox-trust-note"><i class="fa-solid fa-location-dot"></i><span>FoxShop — پت‌شاپ تخصصی گربه‌ها در تبریز، ایران</span><span class="fox-trust-sep">•</span><span>پشتیبانی: ۰۹۹۳۴۱۹۱۷۷۴</span></div></div>';
+      footer.parentNode.insertBefore(trust,footer);
+    });
+  }
+
+  function renderReviewStars(value){
+    const n=Math.min(5,Math.max(1,Number(value)||5));
+    return Array.from({length:5},(_,i)=>`<button type="button" data-review-star="${i+1}" aria-label="${i+1} ستاره" class="fox-star ${i<n?'is-active':''}"><i class="fa-solid fa-star"></i></button>`).join('');
+  }
+
+  function bindReviewForm(){
+    const form=document.getElementById('fox-product-review-form'); if(!form || form.dataset.bound) return;
+    form.dataset.bound='1';
+    const ratingInput=form.querySelector('[name="rating"]');
+    const stars=form.querySelectorAll('[data-review-star]');
+    stars.forEach(btn=>btn.addEventListener('click',()=>{
+      ratingInput.value=btn.dataset.reviewStar;
+      stars.forEach(st=>st.classList.toggle('is-active',Number(st.dataset.reviewStar)<=Number(ratingInput.value)));
+    }));
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const btn=form.querySelector('button[type="submit"]'); const status=form.querySelector('[data-review-status]');
+      if(btn) btn.disabled=true; if(status){status.textContent='در حال ثبت نظر…';status.className='fox-review-status is-loading';}
+      try{
+        const payload=Object.fromEntries(new FormData(form));
+        payload.productId=String(payload.productId||''); payload.customerName=String(payload.customerName||'').trim(); payload.reviewText=String(payload.reviewText||'').trim(); payload.rating=Number(payload.rating)||5; payload.website=String(payload.website||'');
+        const res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok||data.ok===false) throw new Error(data.error||'ثبت نظر انجام نشد.');
+        form.reset(); ratingInput.value='5'; stars.forEach(st=>st.classList.toggle('is-active',Number(st.dataset.reviewStar)<=5));
+        if(status){status.textContent='نظر شما ثبت شد و پس از بررسی فروشگاه در صفحه محصول نمایش داده می‌شود.';status.className='fox-review-status is-success';}
+      }catch(err){ if(status){status.textContent=err.message||'ثبت نظر ناموفق بود؛ دوباره تلاش کنید.';status.className='fox-review-status is-error';} }
+      finally{if(btn) btn.disabled=false;}
+    });
+  }
 
   function refreshAfterStoreReady(){
-    patchCartRenderer(); patchRenderers(); patchHomeRenderers();
+    patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectGlobalSearch(); injectTrustFooter();
     if (document.getElementById('home-featured-grid') && typeof window.renderHomeFeatured === 'function') window.renderHomeFeatured();
-    if (document.getElementById('home-bestseller-grid') && typeof window.renderHomeBestSellers === 'function') window.renderHomeBestSellers();
     if (document.getElementById('catalog-products-grid') && typeof window.renderProductsCatalog === 'function') window.renderProductsCatalog();
     const commerce = document.getElementById('fox-home-commerce');
     if (commerce) commerce.remove();
@@ -529,17 +593,16 @@
   }
 
   function initFeatures(){
-    patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectHeaderLinks(); updateWishlistUI(); updateCompareBar();
+    patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectHeaderLinks(); injectGlobalSearch(); injectTrustFooter(); updateWishlistUI(); updateCompareBar();
     const path=location.pathname;
     if (document.getElementById('home-featured-grid') && typeof window.renderHomeFeatured === 'function') window.renderHomeFeatured();
-    if (document.getElementById('home-bestseller-grid') && typeof window.renderHomeBestSellers === 'function') window.renderHomeBestSellers();
     if (document.getElementById('catalog-products-grid') && typeof window.renderProductsCatalog === 'function') window.renderProductsCatalog();
     if(document.getElementById('product-page-root')) renderProductPage();
     if(document.getElementById('favorites-root')) renderFavoritesPage();
     if(document.getElementById('compare-root')) renderComparePage();
     if(document.getElementById('quiz-root')) renderQuizPage();
     if(document.getElementById('home-categories-grid')) injectHomeCommerceSections();
-    enhanceCatalogCards(); addTrustToExistingPriceAreas(); addOrderButtonsToCart(); updateShippingUI();
+    enhanceCatalogCards(); addTrustToExistingPriceAreas(); addOrderButtonsToCart(); updateShippingUI(); bindReviewForm();
     if((path==='/products.html' || path.endsWith('/products.html')) && !document.getElementById('fox-products-helper')) { const main=document.querySelector('main'); if(main){ main.insertAdjacentHTML('afterbegin','<div id="fox-products-helper" class="mb-4 rounded-2xl bg-white border border-orange-100 p-3 flex flex-col sm:flex-row gap-2 items-center justify-between"><div class="text-[11px] text-slate-500"><i class="fa-solid fa-magnifying-glass text-orange-500"></i> جستجوی نام، برند، وزن، طعم و نیاز مصرفی</div><a href="quiz.html" class="px-3 py-2 rounded-xl bg-orange-600 text-white text-[10px] font-bold">کوییز انتخاب غذا</a></div>'); } }
   }
 
