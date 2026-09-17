@@ -56,6 +56,7 @@ if (typeof window !== "undefined") {
 
 // Initialize on DOM Ready
 document.addEventListener("DOMContentLoaded", async () => {
+  initMobileBottomNav();
   try { await initStorage(); } catch (err) { console.error("Init storage error:", err); }
   initHeader();
   initCartUI();
@@ -63,6 +64,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   createToastContainer();
   checkRemoteAdminSession();
   if (typeof initPage === "function") { initPage(); }
+  if (new URLSearchParams(window.location.search).get("cart") === "1") {
+    setTimeout(() => { if (document.getElementById("cart-drawer")) toggleCartDrawer(); }, 40);
+  }
 });
 
 /**
@@ -393,6 +397,10 @@ function updateCartBadge() {
       b.classList.add("hidden");
     }
   });
+  document.querySelectorAll("[data-mobile-cart-count]").forEach(b => {
+    b.textContent = toPersianDigits(totalItems);
+    b.classList.toggle("is-empty", totalItems === 0);
+  });
 }
 
 function calculateCartTotal() {
@@ -695,6 +703,45 @@ async function copyTextToClipboard(text) {
   try { copied = document.execCommand("copy"); } catch (err) { console.warn("Clipboard copy failed:", err); }
   textarea.remove();
   return copied;
+}
+
+function openMobileBottomCart() {
+  const drawer = document.getElementById("cart-drawer");
+  if (drawer) {
+    toggleCartDrawer();
+    return;
+  }
+  window.location.href = "products.html?cart=1";
+}
+
+function initMobileBottomNav() {
+  if (document.getElementById("fox-mobile-bottom-nav")) return;
+  const path = window.location.pathname || "";
+  const nav = document.createElement("nav");
+  nav.id = "fox-mobile-bottom-nav";
+  nav.className = "fox-mobile-bottom-nav";
+  nav.setAttribute("aria-label", "دسترسی سریع فروشگاه");
+
+  const isHome = /(^|\/)index\.html$/.test(path) || path === "/" || path === "";
+  const isProducts = /(^|\/)products\.html$/.test(path) || /(^|\/)product\.html$/.test(path) || /(^|\/)product\//.test(path);
+  const isInfo = /(^|\/)(about|contact)\.html$/.test(path);
+
+  nav.innerHTML = `
+    <a href="index.html" class="fox-bottom-nav-item ${isHome ? "is-active" : ""}" ${isHome ? 'aria-current="page"' : ""}>
+      <span class="fox-bottom-nav-icon"><i class="fa-solid fa-house"></i></span><b>خانه</b>
+    </a>
+    <a href="products.html#category-pills-container" class="fox-bottom-nav-item ${isProducts ? "is-active" : ""}" ${isProducts ? 'aria-current="page"' : ""}>
+      <span class="fox-bottom-nav-icon"><i class="fa-solid fa-layer-group"></i></span><b>دسته‌بندی</b>
+    </a>
+    <button type="button" class="fox-bottom-nav-item" onclick="openMobileBottomCart()" aria-label="باز کردن سبد خرید">
+      <span class="fox-bottom-nav-icon fox-bottom-nav-cart"><i class="fa-solid fa-cart-shopping"></i><em data-mobile-cart-count>۰</em></span><b>سبد خرید</b>
+    </button>
+    <a href="contact.html" class="fox-bottom-nav-item ${isInfo ? "is-active" : ""}" ${isInfo ? 'aria-current="page"' : ""}>
+      <span class="fox-bottom-nav-icon"><i class="fa-solid fa-headset"></i></span><b>درباره ما و پشتیبانی</b>
+    </a>`;
+
+  document.body.appendChild(nav);
+  updateCartBadge();
 }
 
 function toggleMobileMenu() {

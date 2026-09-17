@@ -25,7 +25,9 @@
 
   function getProduct(id) { return Array.isArray(window.products) ? window.products.find(p => String(p.id) === String(id)) : null; }
   function d(p) { return p?.details || {}; }
-  function productUrl(p) { return `/product/${encodeURIComponent(String(p.id))}`; }
+  // Use the static product page as the client link target. This works both on Cloudflare
+  // Workers (pretty URLs are still supported there) and on a plain static asset deployment.
+  function productUrl(p) { return `product.html?id=${encodeURIComponent(String(p.id))}`; }
   function isConsumable(p) {
     if (!p) return false;
     const x = d(p);
@@ -75,8 +77,12 @@
 
   function normalizeSearchText(value) {
     return String(value ?? '')
+      .normalize('NFKC')
       .replace(/[\u064A\u06CC]/g, 'ی')
       .replace(/[\u0643\u06A9]/g, 'ک')
+      .replace(/[\u0629\u06C0\u06C1]/g, 'ه')
+      .replace(/[\u0624]/g, 'و')
+      .replace(/[\u0623\u0625\u0622\u0671]/g, 'ا')
       .replace(/\u0640/g, '')
       .replace(/[\u064B-\u065F\u0670]/g, '')
       .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
@@ -87,45 +93,67 @@
       .trim();
   }
 
+  function searchTokens(value) {
+    return normalizeSearchText(value).split(' ').filter(Boolean);
+  }
+
   const searchDocumentCache = new WeakMap();
+  function productSearchFields(p) {
+    const x = inferredDetails(p);
+    const categoryName = (window.categories || []).find(c => c.id === p?.categoryId)?.name || '';
+    return {
+      name: normalizeSearchText(p?.name),
+      brand: normalizeSearchText(x.brand),
+      category: normalizeSearchText(categoryName),
+      description: normalizeSearchText([
+        p?.shortDesc, p?.fullDesc, x.weight, x.volume, x.flavor, x.suitableAge,
+        x.goals, x.ingredients, x.country, x.barcode, x.usageMethod, x.storage,
+        Array.isArray(x.tags) ? x.tags.join(' ') : String(x.tags || ''), p?.id
+      ].join(' '))
+    };
+  }
+
   function productSearchDocument(p) {
     if (!p || typeof p !== 'object') return '';
     const cached = searchDocumentCache.get(p);
     if (cached) return cached;
-    const x = inferredDetails(p);
-    const categoryName = (window.categories || []).find(c => c.id === p?.categoryId)?.name || '';
-    const tags = Array.isArray(x.tags) ? x.tags.join(' ') : String(x.tags || '');
-    const value = normalizeSearchText([
-      p?.name, p?.shortDesc, p?.fullDesc, p?.id, categoryName,
-      x.brand, x.weight, x.volume, x.flavor, x.suitableAge, x.goals,
-      x.ingredients, x.country, x.barcode, x.usageMethod, x.storage,
-      tags
-    ].join(' '));
+    const f = productSearchFields(p);
+    const value = normalizeSearchText([f.name, f.brand, f.category, f.description].join(' '));
     searchDocumentCache.set(p, value);
     return value;
+  }
+
+  function tokenMatchesField(token, field) {
+    const parts = field.split(' ').filter(Boolean);
+    return parts.some(part => part === token || (token.length >= 2 && part.startsWith(token)));
   }
 
   function searchScoreProduct(p, query) {
     const q = normalizeSearchText(query);
     if (!q) return 0;
+    const f = productSearchFields(p);
+    const qTokens = searchTokens(q);
+    if (!qTokens.length) return 0;
+
+    // Every entered term must exist in the product's searchable document.
+    // This prevents unrelated products from appearing for non-existent searches.
     const doc = productSearchDocument(p);
-    const name = normalizeSearchText(p?.name);
-    const brand = normalizeSearchText(inferredDetails(p).brand);
-    if (!doc) return 0;
-    const tokens = q.split(' ').filter(Boolean);
+    if (!qTokens.every(token => tokenMatchesField(token, doc))) return 0;
+
     let score = 0;
-    if (name === q) score += 120;
-    if (name.startsWith(q)) score += 80;
-    if (brand === q) score += 70;
-    if (doc.includes(q)) score += 45;
-    for (const token of tokens) {
-      if (!token) continue;
-      if (name.split(' ').some(part => part === token || part.startsWith(token))) score += 28;
-      else if (brand.includes(token)) score += 22;
-      else if (doc.includes(token)) score += 10;
+    if (f.name === q) score += 1000;
+    if (f.name.includes(q)) score += 700;
+    if (f.brand === q) score += 650;
+    if (f.category === q) score += 500;
+    if (f.name.includes(q) || f.brand.includes(q) || f.category.includes(q)) score += 120;
+
+    for (const token of qTokens) {
+      if (tokenMatchesField(token, f.name)) score += 70;
+      else if (tokenMatchesField(token, f.brand)) score += 50;
+      else if (tokenMatchesField(token, f.category)) score += 35;
+      else if (tokenMatchesField(token, f.description)) score += 12;
     }
-    if (Number(p?.isBestSeller)) score += 2;
-    if (Number(p?.isFeatured)) score += 1;
+
     return score;
   }
 
@@ -135,7 +163,7 @@
     return list
       .map(p => ({ p, score: searchScoreProduct(p, q) }))
       .filter(x => x.score > 0)
-      .sort((a,b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score)
       .map(x => x.p);
   }
 
@@ -401,6 +429,20 @@
     if(searchInput && !searchInput.dataset.foxEnhancedSearch){
       searchInput.dataset.foxEnhancedSearch='1';
       searchInput.addEventListener('input',()=>{ if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog(); });
+      searchInput.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog();
+        }
+      });
+    }
+    const searchButton=document.getElementById('catalog-search-trigger');
+    if(searchButton && !searchButton.dataset.foxEnhancedSearchButton){
+      searchButton.dataset.foxEnhancedSearchButton='1';
+      searchButton.addEventListener('click',()=>{
+        if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog();
+        searchInput?.focus();
+      });
     }
   }
 
@@ -530,28 +572,39 @@
   }
 
   function injectHeaderLinks(){
-    document.querySelectorAll('nav').forEach(nav=>{
+    document.querySelectorAll('nav:not(.fox-mobile-bottom-nav)').forEach(nav=>{
       if(nav.querySelector('[data-foxshop-links]'))return;
       const wrap=document.createElement('div');wrap.dataset.foxshopLinks='1';wrap.className='hidden xl:flex items-center gap-2 mr-2';wrap.innerHTML='<a href="favorites.html" class="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-rose-50 text-rose-700">♥ علاقه‌مندی‌ها <span data-wishlist-count>۰</span></a><a href="compare.html" class="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-slate-100 text-slate-700">مقایسه</a><a href="quiz.html" class="text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-orange-50 text-orange-700">کوییز</a>';nav.appendChild(wrap);
     });
   }
 
   function injectGlobalSearch(){
-    const existing=document.getElementById('fox-global-search-trigger');
-    if(existing) return;
     const target=document.querySelector('header .glass-nav') || document.querySelector('header');
     const cart=document.getElementById('cart-trigger-btn');
     const actionWrap=cart?.parentElement || target?.querySelector('.max-w-7xl > div:last-child') || target?.querySelector('.max-w-7xl > div');
     if(!target || !actionWrap) return;
-    const btn=document.createElement('button');
-    btn.id='fox-global-search-trigger';
-    btn.type='button';
-    btn.className='fox-search-icon-button';
-    btn.setAttribute('aria-label','جستجوی محصول');
-    btn.title='جستجوی محصول';
-    btn.innerHTML='<i class="fa-solid fa-magnifying-glass"></i>';
-    actionWrap.insertBefore(btn, actionWrap.firstElementChild || null);
-    btn.addEventListener('click',openGlobalSearch);
+
+    let btn=document.getElementById('fox-global-search-trigger');
+    if(!btn){
+      btn=document.createElement('button');
+      btn.id='fox-global-search-trigger';
+      btn.type='button';
+      btn.className='fox-search-icon-button';
+      btn.setAttribute('aria-label','جستجوی محصول');
+      btn.title='جستجوی محصول';
+      btn.innerHTML='<i class="fa-solid fa-magnifying-glass"></i>';
+      actionWrap.insertBefore(btn, actionWrap.firstElementChild || null);
+      btn.addEventListener('click',openGlobalSearch);
+    }
+
+    if(!actionWrap.querySelector('[data-fox-search-cat]')){
+      const thumb=document.createElement('span');
+      thumb.dataset.foxSearchCat='1';
+      thumb.className='fox-search-cat-thumb';
+      thumb.setAttribute('aria-hidden','true');
+      thumb.innerHTML='<img src="assets/images/foxshop-cat-search.webp" alt="">';
+      actionWrap.insertBefore(thumb, btn);
+    }
 
     const input=document.getElementById('global-search-input');
     if(input && !input.dataset.foxSearchBound){
@@ -610,7 +663,9 @@
 
   function injectTrustFooter(){
     document.querySelectorAll('footer').forEach(footer=>{
-      if(footer.querySelector('[data-fox-visible-trust]')) return;
+      const siblings=[...footer.parentElement.children].filter(el=>el.dataset?.foxVisibleTrust==='1');
+      if(siblings.length>1) siblings.slice(0,-1).forEach(el=>el.remove());
+      if(siblings.length) return;
       const trust=document.createElement('section');
       trust.dataset.foxVisibleTrust='1';
       trust.className='fox-trust-footer';
@@ -681,7 +736,11 @@
   }
 
   // Re-render additive sections once the remote D1 catalog or local fallback has finished loading.
-  window.addEventListener('foxshop:store-ready', () => setTimeout(refreshAfterStoreReady, 0), { passive: true });
+  window.addEventListener('foxshop:store-ready', () => {
+    setTimeout(refreshAfterStoreReady, 0);
+    const liveInput=document.getElementById('fox-search-modal-input');
+    if(liveInput) renderGlobalSearchSuggestions(liveInput.value || '');
+  }, { passive: true });
 
   // Wait until all existing inline page scripts have defined initPage, then wrap it.
   wrapInitPage();
