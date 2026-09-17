@@ -27,7 +27,7 @@ let settings = {
   instagramUrl: INSTAGRAM_URL,
   aboutText: "پت‌شاپ FoxShop در تبریز با هدف ارائه مرغوب‌ترین و اصیل‌ترین خوراک و ملزومات گربه‌ها ایجاد شده است. ما اهمیت عشق و مراقبتی که نسبت به گربه‌تان دارید را درک می‌کنیم؛ از این رو محصولات را با اطلاعات قابل بررسی درباره برند، اصالت و انقضا عرضه می‌کنیم.",
   storeLocation: "تبریز، ایران",
-  freeShippingThreshold: 3000000,
+  freeShippingThreshold: 3500000,
   shippingCost: 120000,
   shippingDispatchTime: "۱ تا ۲ روز کاری",
   returnPolicy: "شرایط مرجوعی طبق سیاست ثبت‌شده فروشگاه و با بررسی وضعیت کالا انجام می‌شود.",

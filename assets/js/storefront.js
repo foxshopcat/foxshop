@@ -7,7 +7,7 @@
   const LS_COMPARE = 'foxshop_compare_v1';
   const LS_RESTOCK = 'foxshop_restock_v1';
   const LS_QUIZ = 'foxshop_quiz_v1';
-  const FREE_SHIPPING_DEFAULT = 3000000;
+  const FREE_SHIPPING_DEFAULT = 3500000;
   const SHOP_LOCATION = 'تبریز، ایران';
   const INSTAGRAM_URL = 'https://www.instagram.com/foxshop.cat?stkn=MTRud2VncmpudDZpeg==';
   const RUBIKA_URL = 'https://rubika.ir/baloot_cats';
