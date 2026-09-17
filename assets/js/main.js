@@ -611,37 +611,13 @@ function renderCartDrawer() {
 }
 
 /**
- * Product Quick View Modal & Logo Reveal Animation
+ * Product card navigation.
+ * Product cards now go directly to the real product page; no secondary splash/overlay is shown.
  */
 function openProductDetailModalWithSplash(productId) {
-  let loader = document.getElementById("fox-product-loader");
-  if (!loader) {
-    loader = document.createElement("div");
-    loader.id = "fox-product-loader";
-    loader.innerHTML = `
-      <div class="fox-loader-card">
-        <div class="fox-loader-logo-ring">
-          <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCA9wPsl74QezScl6MSgkI2o0xUTzfcjGUtFbzxomrJAIf6RXTyJ4Vt37NbG-HSROy0k7OY1w1g0FQycVmExxDWxx-pTo4BozV8Rt7OnTeb8vvsIBis0RxQIaeFqPPYcMaOM7KMCmth-w7A9l_TAW9Z_nmWueMMYj89L-312K11CIz-TgjjEO9hEsd41UPsCivtswJi7O-hpFxHWGJl4xZHf5w5R50arV9ZPUhMFzPJlfyNtICfR0IBS6hMALr65T-hxkA" alt="FoxShop Logo" class="w-12 h-12 object-contain">
-        </div>
-        <div class="text-center">
-          <span class="text-xs font-black text-slate-800 tracking-tight block">Fox<span class="text-orange-600">Shop</span></span>
-          <span class="text-[10px] text-slate-400 font-medium">پت‌شاپ تخصصی گربه‌ها • در حال نمایش...</span>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(loader);
-  }
-
-  loader.classList.remove("closing");
-  loader.classList.add("active");
-
-  setTimeout(() => {
-    loader.classList.add("closing");
-    setTimeout(() => {
-      loader.classList.remove("active", "closing");
-      openProductDetailModal(productId, true);
-    }, 180);
-  }, 420);
+  const key = String(productId ?? "").trim();
+  if (!key) return;
+  window.location.assign(`product.html?id=${encodeURIComponent(key)}`);
 }
 
 function openProductDetailModal(productId, skipSplash = false) {
@@ -1682,7 +1658,7 @@ function renderAdminProductsRows(productList) {
         </div>
       </div>
       <div class="flex items-center gap-1">
-        <button onclick="openProductDetailModalWithSplash('${prod.id}')" class="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="مشاهده">
+        <button onclick="openProductDetailModal('${prod.id}', true)" class="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="مشاهده">
           <i class="fa-solid fa-eye text-xs"></i>
         </button>
         <button onclick='openAdminProductEditor(${JSON.stringify(String(prod.id)).replace(/'/g, "&#39;")})' class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="ویرایش محصول">

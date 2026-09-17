@@ -535,6 +535,28 @@
     return '';
   }
 
+  const FOXSHOP_STICKERS = [
+    ['01-witch.webp','ساحره'],['02-wizard.webp','جادوگر'],['03-dinosaur.webp','دایناسوری'],
+    ['04-princess.webp','پرنسس'],['05-suit.webp','کت و شلوار'],['06-sunglasses.webp','تابستانی'],
+    ['07-mafia.webp','مافیا'],['08-yarn.webp','کاموا'],['09-space.webp','فضانورد'],['10-angel.webp','فرشته']
+  ];
+
+  function buildFoxStickerPackMarkup() {
+    return `<section class="fox-sticker-pack fox-product-sticker-pack" aria-label="پک ۱۰ تایی استیکر گربه FoxShop">
+      <div class="fox-sticker-pack-head">
+        <div>
+          <span class="fox-sticker-kicker"><i class="fa-solid fa-wand-magic-sparkles"></i> پک استیکری اختصاصی FoxShop</span>
+          <h2>گربه کوچولوی FoxShop با ۱۰ تیپ بامزه 🐾</h2>
+          <p>همان گربه FoxShop در ۱۰ حالت کارتونی؛ یک بخش رنگی و بامزه برای صفحه محصول.</p>
+        </div>
+        <div class="fox-sticker-pack-badge"><i class="fa-solid fa-heart"></i><span>۱۰ استیکر</span></div>
+      </div>
+      <div class="fox-product-sticker-grid">
+        ${FOXSHOP_STICKERS.map(([file,label]) => `<div class="fox-sticker-item fox-product-sticker-item"><div class="fox-product-sticker-art"><img src="assets/images/stickers/${file}" alt="استیکر گربه FoxShop - ${label}" loading="eager" decoding="async"></div><span>${label}</span></div>`).join('')}
+      </div>
+    </section>`;
+  }
+
   function buildProductSpecRows(p) {
     const x = inferredDetails(p);
     const rows = [
@@ -587,6 +609,7 @@
           <div class="grid grid-cols-2 gap-2"><button ${out?'disabled':''} onclick="addToCart('${safeText(p.id)}')" class="py-3.5 rounded-2xl ${out?'bg-slate-200 text-slate-400 cursor-not-allowed':'bg-orange-600 text-white hover:bg-orange-700'} font-black text-xs"><i class="fa-solid fa-cart-plus"></i> افزودن به سبد</button><button onclick="toggleWishlist('${safeText(p.id)}',event)" data-wishlist-id="${safeText(p.id)}" class="py-3.5 rounded-2xl ${wished?'bg-rose-50 text-rose-600':'bg-slate-100 text-slate-700'} font-black text-xs"><i class="${wished?'fa-solid':'fa-regular'} fa-heart"></i> علاقه‌مندی</button></div>
           <div class="grid grid-cols-2 gap-2"><button onclick="toggleCompare('${safeText(p.id)}',event)" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-[11px]"><i class="fa-solid fa-code-compare"></i> مقایسه</button>${out?`<button onclick="toggleRestockAlert('${safeText(p.id)}')" data-restock-id="${safeText(p.id)}" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-[11px]"><i class="fa-regular fa-bell"></i> اطلاع موجودشدن</button>`:`<button onclick="${isConsumable(p)?`repeatPurchase('${safeText(p.id)}')`:`addToCart('${safeText(p.id)}')`}" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-[11px]"><i class="fa-solid fa-rotate"></i> ${isConsumable(p)?'خرید مجدد':'افزودن دوباره'}</button>`}</div>
         </div></div></section>
+      ${buildFoxStickerPackMarkup()}
       <section class="grid grid-cols-1 lg:grid-cols-2 gap-5"><div class="bg-white rounded-3xl border border-slate-200 p-5"><h2 class="font-black text-base mb-3">مشخصات کامل</h2><div>${buildProductSpecRows(p)}</div></div><div class="bg-white rounded-3xl border border-slate-200 p-5"><h2 class="font-black text-base mb-3">ترکیبات و آنالیز تغذیه‌ای</h2><p class="text-xs text-slate-600 leading-7 whitespace-pre-line">${safeText(x.ingredients||'اطلاعات ترکیبات این کالا هنوز توسط فروشگاه تکمیل نشده است.')}</p>${x.nutritionAnalysis?`<div class="mt-4 pt-4 border-t"><h3 class="text-xs font-black mb-2">آنالیز تغذیه‌ای</h3><p class="text-xs text-slate-600 leading-7 whitespace-pre-line">${safeText(x.nutritionAnalysis)}</p></div>`:''}</div></section>
       <section class="bg-white rounded-3xl border border-slate-200 p-5"><h2 class="text-base font-black mb-3">توضیحات</h2><p class="text-xs text-slate-600 leading-8 whitespace-pre-line">${safeText(p.fullDesc||p.shortDesc||'')}</p></section>
       <section class="bg-white rounded-3xl border border-slate-200 p-5"><h2 class="text-base font-black mb-4">پرسش‌های متداول</h2>${(Array.isArray(x.faq)&&x.faq.length)?x.faq.map((f,i)=>`<details class="border-b border-slate-100 py-3"><summary class="cursor-pointer font-bold text-xs text-slate-800">${safeText(f.question||f.q||'سؤال متداول')}</summary><p class="text-xs text-slate-500 leading-7 mt-2">${safeText(f.answer||f.a||'')}</p></details>`).join(''):'<p class="text-xs text-slate-400">FAQ این محصول هنوز تکمیل نشده است.</p>'}</section>
