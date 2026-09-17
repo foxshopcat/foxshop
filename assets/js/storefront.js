@@ -821,24 +821,63 @@
     if((path==='/products.html' || path.endsWith('/products.html')) && !document.getElementById('fox-products-helper')) { const main=document.querySelector('main'); if(main){ main.insertAdjacentHTML('afterbegin','<div id="fox-products-helper" class="mb-4 rounded-2xl bg-white border border-orange-100 p-3 flex flex-col sm:flex-row gap-2 items-center justify-between"><div class="text-[11px] text-slate-500"><i class="fa-solid fa-magnifying-glass text-orange-500"></i> جستجوی نام، برند، وزن، طعم و نیاز مصرفی</div><a href="quiz.html" class="px-3 py-2 rounded-xl bg-orange-600 text-white text-[10px] font-bold">کوییز انتخاب غذا</a></div>'); } }
   }
 
+  let foxInitFeaturesQueued = false;
+  let foxStoreRefreshQueued = false;
+
+  function scheduleInitFeatures(){
+    if (foxInitFeaturesQueued) return;
+    foxInitFeaturesQueued = true;
+    const run = () => {
+      foxInitFeaturesQueued = false;
+      try { initFeatures(); } catch (err) { console.error('FoxShop feature init error:', err); }
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(run, { timeout: 120 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function scheduleStoreRefresh(){
+    if (foxStoreRefreshQueued) return;
+    foxStoreRefreshQueued = true;
+    const run = () => {
+      foxStoreRefreshQueued = false;
+      try { refreshAfterStoreReady(); } catch (err) { console.error('FoxShop store refresh error:', err); }
+      const liveInput=document.getElementById('fox-search-modal-input');
+      if(liveInput) renderGlobalSearchSuggestions(liveInput.value || '');
+    };
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(run, { timeout: 220 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
   function wrapInitPage(){
     if(typeof window.initPage !== 'function' || window.initPage.__foxWrapped) return;
     const base=window.initPage;
-    const wrapped=function(...args){const r=base.apply(this,args);queueMicrotask(initFeatures);return r;}; wrapped.__foxWrapped=true;window.initPage=wrapped;
+    const wrapped=function(...args){
+      const r=base.apply(this,args);
+      scheduleInitFeatures();
+      return r;
+    };
+    wrapped.__foxWrapped=true;
+    window.initPage=wrapped;
   }
 
   // Re-render additive sections once the remote D1 catalog or local fallback has finished loading.
   window.addEventListener('foxshop:store-ready', () => {
-    setTimeout(refreshAfterStoreReady, 0);
-    setTimeout(() => { if (document.getElementById('product-page-root')) renderProductPage(); }, 0);
-    const liveInput=document.getElementById('fox-search-modal-input');
-    if(liveInput) renderGlobalSearchSuggestions(liveInput.value || '');
+    wrapInitPage();
+    scheduleStoreRefresh();
   }, { passive: true });
 
-  // Wait until all existing inline page scripts have defined initPage, then wrap it.
+  // One lightweight initialization path instead of multiple 60/350ms delayed passes.
   wrapInitPage();
-  window.addEventListener('load', () => { wrapInitPage(); setTimeout(initFeatures, 60); }, { once: true });
-  document.addEventListener('DOMContentLoaded', () => { setTimeout(initFeatures, 350); }, { once: true });
+  document.addEventListener('DOMContentLoaded', () => {
+    wrapInitPage();
+    scheduleInitFeatures();
+  }, { once: true });
 
   window.__foxshopBuildInvoice = buildInvoiceText;
   window.__foxshopBuildItems = buildItemsText;

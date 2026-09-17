@@ -172,6 +172,24 @@ async function refreshRemoteStore() {
   return data;
 }
 
+// Start the public catalog request as soon as this script is parsed and reuse
+// the same in-flight promise during normal page initialization. This removes
+// unnecessary waiting for DOMContentLoaded without changing the data source.
+let foxShopEarlyStorePromise = null;
+function getRemoteStoreOnce() {
+  if (!foxShopEarlyStorePromise) foxShopEarlyStorePromise = refreshRemoteStore();
+  return foxShopEarlyStorePromise;
+}
+
+if (typeof window !== "undefined" && typeof fetch === "function") {
+  try {
+    const prime = getRemoteStoreOnce();
+    // Prevent an early network rejection from becoming an unhandled-promise event;
+    // initStorage() will still observe the same promise and apply the normal fallback.
+    if (prime && typeof prime.catch === "function") prime.catch(() => {});
+  } catch (_) {}
+}
+
 async function checkRemoteAdminSession() {
   try {
     const data = await apiRequest("/admin/me", { method: "GET" });
@@ -188,7 +206,7 @@ async function checkRemoteAdminSession() {
 async function initStorage() {
   // Public catalog comes from Cloudflare D1 when the API is configured.
   try {
-    await refreshRemoteStore();
+    await getRemoteStoreOnce();
   } catch (remoteErr) {
     backendReady = false;
     console.warn("Remote store unavailable; using built-in catalog fallback:", remoteErr);
