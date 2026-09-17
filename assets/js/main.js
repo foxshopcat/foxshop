@@ -60,6 +60,7 @@ if (typeof window !== "undefined") {
 
 // Initialize on DOM Ready
 document.addEventListener("DOMContentLoaded", async () => {
+  initFoxShopPageNavigationLoader();
   initMobileBottomNav();
   try { await initStorage(); } catch (err) { console.error("Init storage error:", err); }
   initHeader();
@@ -287,6 +288,128 @@ function escapeHtml(str) {
       '"': "&quot;",
       "'": "&#039;"
     }[m];
+  });
+}
+
+/*
+ * FoxShop page navigation loader. Replaces decorative navigation flashes with
+ * one clean full-screen loader and works on every page using this shared file.
+ */
+const FOXSHOP_LOGO_URL = "https://lh3.googleusercontent.com/aida-public/AB6AXuCA9wPsl74QezScl6MSgkI2o0xUTzfcjGUtFbzxomrJAIf6RXTyJ4Vt37NbG-HSROy0k7OY1w1g0FQycVmExxDWxx-pTo4BozV8Rt7OnTeb8vvsIBis0RxQIaeFqPPYcMaOM7KMCmth-w7A9l_TAW9Z_nmWueMMYj89L-312K11CIz-TgjjEO9hEsd41UPsCivtswJi7O-hpFxHWGJl4xZHf5w5R50arV9ZPUhMFzPJlfyNtICfR0IBS6hMALr65T-hxkA";
+const FOXSHOP_NAV_LOADER_KEY = "foxshop_nav_loader_v1";
+let foxShopPageLoader = null;
+let foxShopPageLoaderTimer = null;
+
+function ensureFoxShopPageLoader() {
+  if (foxShopPageLoader && foxShopPageLoader.isConnected) return foxShopPageLoader;
+  const existing = document.getElementById("fox-global-page-loader");
+  if (existing) {
+    foxShopPageLoader = existing;
+    return existing;
+  }
+  if (!document.body) return null;
+  const loader = document.createElement("div");
+  loader.id = "fox-global-page-loader";
+  loader.setAttribute("aria-live", "polite");
+  loader.setAttribute("aria-busy", "true");
+  loader.innerHTML = `
+    <div class="fox-global-loader-card" role="status">
+      <div class="fox-global-loader-logo"><img src="${FOXSHOP_LOGO_URL}" alt="FoxShop" decoding="async"></div>
+      <div class="fox-global-loader-spinner" aria-hidden="true"></div>
+      <div class="fox-global-loader-title">در حال بارگیری</div>
+      <div class="fox-global-loader-subtitle">لطفاً چند لحظه صبر کنید…</div>
+    </div>
+  `;
+  document.body.appendChild(loader);
+  foxShopPageLoader = loader;
+  return loader;
+}
+
+function showFoxShopPageLoader() {
+  const loader = ensureFoxShopPageLoader();
+  if (!loader) return;
+  if (foxShopPageLoaderTimer) clearTimeout(foxShopPageLoaderTimer);
+  loader.classList.remove("is-hiding");
+  loader.classList.add("is-visible");
+  loader.setAttribute("aria-busy", "true");
+  document.documentElement.classList.add("fox-page-loading");
+}
+
+function hideFoxShopPageLoader(delay = 120) {
+  const loader = ensureFoxShopPageLoader();
+  if (!loader) return;
+  if (foxShopPageLoaderTimer) clearTimeout(foxShopPageLoaderTimer);
+  foxShopPageLoaderTimer = setTimeout(() => {
+    loader.classList.add("is-hiding");
+    loader.setAttribute("aria-busy", "false");
+    document.documentElement.classList.remove("fox-page-loading");
+    setTimeout(() => {
+      if (foxShopPageLoader && foxShopPageLoader.classList.contains("is-hiding")) {
+        foxShopPageLoader.classList.remove("is-visible", "is-hiding");
+      }
+    }, 220);
+  }, Math.max(0, Number(delay) || 0));
+}
+
+function isFoxShopInternalNavigationLink(anchor, event) {
+  if (!anchor || !anchor.href) return false;
+  if (event.defaultPrevented || event.button !== 0) return false;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  if (anchor.target && anchor.target !== "_self") return false;
+  if (anchor.hasAttribute("download")) return false;
+  if (anchor.dataset.noPageLoader === "1") return false;
+  const rawHref = anchor.getAttribute("href") || "";
+  if (!rawHref || rawHref.startsWith("#") || /^(mailto:|tel:|javascript:)/i.test(rawHref)) return false;
+  let url;
+  try { url = new URL(anchor.href, window.location.href); } catch (_) { return false; }
+  if (url.origin !== window.location.origin || url.protocol !== window.location.protocol) return false;
+  if (url.pathname === window.location.pathname && url.search === window.location.search) return false;
+  return true;
+}
+
+function initFoxShopPageNavigationLoader() {
+  const loader = ensureFoxShopPageLoader();
+  if (!loader || loader.dataset.bound === "1") return;
+  loader.dataset.bound = "1";
+  let navigating = false;
+  let loadStartedAt = 0;
+  try {
+    const pending = sessionStorage.getItem(FOXSHOP_NAV_LOADER_KEY) === "1";
+    sessionStorage.removeItem(FOXSHOP_NAV_LOADER_KEY);
+    if (pending) {
+      showFoxShopPageLoader();
+      loadStartedAt = Date.now();
+      const reveal = () => hideFoxShopPageLoader(Math.max(120, 360 - (Date.now() - loadStartedAt)));
+      if (document.readyState === "complete") reveal();
+      else window.addEventListener("load", reveal, { once: true });
+      setTimeout(reveal, 5200);
+    } else {
+      hideFoxShopPageLoader(0);
+    }
+  } catch (_) {
+    hideFoxShopPageLoader(0);
+  }
+
+  document.addEventListener("click", (event) => {
+    if (navigating) return;
+    const anchor = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+    if (!isFoxShopInternalNavigationLink(anchor, event)) return;
+    const url = new URL(anchor.href, window.location.href);
+    navigating = true;
+    try { sessionStorage.setItem(FOXSHOP_NAV_LOADER_KEY, "1"); } catch (_) {}
+    const mobileMenu = document.getElementById("mobile-menu");
+    if (mobileMenu) mobileMenu.classList.add("hidden");
+    const cartDrawer = document.getElementById("cart-drawer");
+    if (cartDrawer) cartDrawer.classList.add("hidden");
+    showFoxShopPageLoader();
+    event.preventDefault();
+    setTimeout(() => { window.location.assign(url.href); }, 45);
+  }, true);
+
+  window.addEventListener("pageshow", () => {
+    navigating = false;
+    try { sessionStorage.removeItem(FOXSHOP_NAV_LOADER_KEY); } catch (_) {}
+    hideFoxShopPageLoader(80);
   });
 }
 
@@ -2267,20 +2390,6 @@ if (typeof window !== "undefined") {
         elements.forEach(el => el.classList.add('is-visible'));
       }
 
-      if (!document.querySelector('.fox-cat-pattern')) {
-        const pattern = document.createElement('div');
-        pattern.className = 'fox-cat-pattern';
-        pattern.setAttribute('aria-hidden', 'true');
-        const icons = ['🐱','🐾','😺','🐾','🐱','🐾','😸'];
-        const count = isTouchOrMobile ? 12 : 24;
-        for (let i = 0; i < count; i++) {
-          const span = document.createElement('span');
-          span.textContent = icons[i % icons.length];
-          pattern.appendChild(span);
-        }
-        document.body.appendChild(pattern);
-      }
-
       const header = document.querySelector('header.sticky');
       if (header) {
         let headerTick = false;
@@ -2296,13 +2405,7 @@ if (typeof window !== "undefined") {
         window.addEventListener('scroll', syncHeader, { passive: true });
       }
 
-      if (!document.querySelector('.fox-cat-corner')) {
-        const badge = document.createElement('div');
-        badge.className = 'fox-cat-corner';
-        badge.setAttribute('aria-hidden', 'true');
-        badge.innerHTML = '<span>🐱</span><small>🐾</small>';
-        document.body.appendChild(badge);
-      }
+      document.querySelectorAll('.fox-cat-pattern, .fox-cat-corner').forEach(el => el.remove());
     } catch (err) {
       console.debug('Premium UI enhancement skipped:', err);
     }
