@@ -1138,3 +1138,71 @@ body.paw-bg.cat-paw-pattern {
 #cart-drawer {
   z-index: 60 !important;
 }
+
+/* =========================================================
+   FoxShop Fix Pack 3 — product reliability + phone-safe layout
+   ========================================================= */
+#home-hero-premium.fox-hero-vibrant {
+  color:#233347 !important;
+  background:radial-gradient(circle at 10% 18%,rgba(125,211,252,.55),transparent 30%),radial-gradient(circle at 88% 18%,rgba(255,211,167,.60),transparent 32%),linear-gradient(120deg,#bfe7ff 0%,#edf9ff 48%,#ffe9d5 100%) !important;
+  border:1px solid rgba(119,187,229,.28);
+  box-shadow:0 24px 60px rgba(74,144,194,.14) !important;
+}
+#home-hero-premium.fox-hero-vibrant p{color:#456078 !important}
+#home-hero-premium.fox-hero-vibrant .underline{text-decoration-color:#f4a261 !important}
+#home-hero-premium.fox-hero-vibrant .bg-white\/20{background:rgba(255,255,255,.66) !important;border:1px solid rgba(255,255,255,.62);color:#35516a !important}
+
+.fox-product-error{min-height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:36px 20px;border-radius:30px;background:linear-gradient(145deg,#fff,#fff7f3 52%,#f5f0ff);border:1px solid rgba(147,115,202,.16);box-shadow:0 20px 50px rgba(52,33,68,.08)}
+.fox-product-error-orb{width:68px;height:68px;display:grid;place-items:center;border-radius:22px;color:#fff;font-size:28px;background:linear-gradient(135deg,#7dbfff,#ffb77f,#b48cf0);box-shadow:0 15px 32px rgba(136,104,209,.20)}
+.fox-product-error h1{margin:4px 0 0;color:#32263c;font-weight:900;font-size:18px}
+.fox-product-error p{margin:0;color:#82758b;font-size:11px;max-width:420px;line-height:2}
+.fox-product-error button,.fox-product-error a{margin-top:8px;min-height:42px;display:inline-flex;align-items:center;justify-content:center;padding:0 18px;border-radius:14px;font-size:11px;font-weight:900;text-decoration:none}
+.fox-product-error button{border:0;color:#fff;background:linear-gradient(135deg,#ff9d68,#a980f0);cursor:pointer}.fox-product-error a{color:#4f3e63;background:#f3edf8}
+
+html,body{width:100%;max-width:100%;min-width:0;overflow-x:hidden !important}body{overscroll-behavior-x:none}
+img,svg,video,canvas{max-width:100%}button,input,textarea,select{max-width:100%}
+main,header,footer,section,article,nav,.max-w-7xl,.grid,.flex{min-width:0}
+#product-page-root,#catalog-products-grid,#home-featured-grid,#home-categories-grid{width:100%;min-width:0}
+#product-page-root img{max-width:100%}#product-page-root .break-words{overflow-wrap:anywhere}
+#product-page-root .overflow-x-auto{-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+
+@media (max-width:900px){
+  body{padding-bottom:82px !important}
+  #product-page-root{padding-inline:0}
+  #product-page-root>div,#product-page-root>div>section,#product-page-root .grid{width:100%;min-width:0}
+  #product-page-root h1,#product-page-root h2,#product-page-root h3,#product-page-root p,#product-page-root span,#product-page-root a,#product-page-root button{overflow-wrap:anywhere}
+  header .max-w-7xl{width:100% !important;max-width:none !important;padding-inline:10px !important;gap:6px !important}
+  header .max-w-7xl>a:first-child{min-width:0;flex:1 1 auto}
+  header .max-w-7xl>a:first-child span:last-child small{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  header .max-w-7xl>div:last-child{flex:0 0 auto;min-width:0}
+  .fox-search-cat-thumb{width:26px !important;height:26px !important;flex-basis:26px !important}
+  .fox-search-icon-button{width:36px !important;height:36px !important}
+  .product-card-item,#catalog-products-grid>div,#home-featured-grid>div,#home-categories-grid>div{min-width:0 !important;max-width:100% !important}
+}
+
+@media (max-width:640px){
+  body{padding-bottom:78px !important}
+  #home-hero-premium.fox-hero-vibrant{border-radius:24px !important;padding:18px !important;background:radial-gradient(circle at 12% 10%,rgba(125,211,252,.48),transparent 34%),radial-gradient(circle at 90% 12%,rgba(255,211,167,.52),transparent 36%),linear-gradient(145deg,#c6eaff 0%,#f5fbff 48%,#ffeedd 100%) !important}
+  #home-hero-premium.fox-hero-vibrant h1{font-size:clamp(1.45rem,7vw,2rem) !important}
+  #home-hero-premium.fox-hero-vibrant .flex.flex-wrap{align-items:stretch}
+  #home-hero-premium.fox-hero-vibrant .flex.flex-wrap>a{width:100%;justify-content:center}
+  #home-hero-premium.fox-hero-vibrant .lg\:col-span-4{display:none !important}
+  #product-page-root>div>section{border-radius:22px !important;padding:14px !important}
+  #product-page-root .aspect-square{border-radius:22px !important;padding:14px !important}
+  #product-page-root .grid.grid-cols-2{grid-template-columns:minmax(0,1fr) !important}
+  #product-page-root .grid.grid-cols-1.sm\:grid-cols-2{grid-template-columns:minmax(0,1fr) !important}
+  #product-page-root h1{font-size:1.25rem !important}#product-page-root .text-2xl{font-size:1.45rem !important}
+  #product-page-root .grid-cols-\[minmax\(92px\,0\.7fr\)_minmax\(0\,1\.3fr\)\]{grid-template-columns:88px minmax(0,1fr) !important}
+  #cart-drawer>div{width:100% !important;max-width:none !important;padding:14px !important;padding-bottom:calc(16px + env(safe-area-inset-bottom)) !important}
+  #cart-items-container{min-height:0 !important;overflow-y:auto !important}#cart-footer-view{padding-bottom:2px !important}
+  body:has(#cart-drawer:not(.hidden)) .fox-mobile-bottom-nav{display:none !important}
+  .fox-search-dialog{width:calc(100vw - 20px) !important;max-width:none !important}
+  .fox-search-result span{min-width:0 !important}.fox-search-result b,.fox-search-result small{overflow-wrap:anywhere}
+}
+@media (max-width:380px){
+  header .max-w-7xl{padding-inline:7px !important}header .max-w-7xl>a:first-child{gap:7px !important}header .max-w-7xl>a:first-child>span:first-child{width:34px !important;height:34px !important;border-radius:11px !important}header .max-w-7xl>a:first-child b{font-size:15px !important}header .max-w-7xl>a:first-child small{display:none !important}
+  .fox-search-cat-thumb{width:23px !important;height:23px !important;flex-basis:23px !important}.fox-search-icon-button{width:34px !important;height:34px !important}
+  .fox-mobile-bottom-nav{padding-inline:4px !important;gap:2px !important}.fox-bottom-nav-item{padding-inline:2px !important}.fox-bottom-nav-item b{font-size:7px !important}
+  #product-page-root>div>section{padding:12px !important;border-radius:20px !important}
+  #product-page-root .fox-review-layout{grid-template-columns:minmax(0,1fr) !important}
+}
