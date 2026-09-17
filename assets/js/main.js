@@ -158,14 +158,22 @@ function normalizeCart(list) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(`/api${path}`, {
-    credentials: "same-origin",
-    ...options,
-    headers: {
-      ...(options.body instanceof FormData ? {} : { "content-type": "application/json" }),
-      ...(options.headers || {})
-    }
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  let response;
+  try {
+    response = await fetch(`/api${path}`, {
+      credentials: "same-origin",
+      signal: controller.signal,
+      ...options,
+      headers: {
+        ...(options.body instanceof FormData ? {} : { "content-type": "application/json" }),
+        ...(options.headers || {})
+      }
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   const text = await response.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { ok: false, error: text || "پاسخ نامعتبر از سرور" }; }
