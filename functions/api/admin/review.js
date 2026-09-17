@@ -1,5 +1,13 @@
 import { bad, cleanString, ensureExtendedSchema, getStore, json, requireAdmin, requireJson } from '../_shared.js';
 
+export async function onRequestGet(context) {
+  if (!(await requireAdmin(context))) return bad('نیاز به ورود مدیر دارید.', 401);
+  await ensureExtendedSchema(context.env.DB);
+  const rows = await context.env.DB.prepare(`SELECT r.id,r.product_id AS productId,p.name AS productName,r.customer_name AS customerName,r.rating,r.review_text AS reviewText,r.created_at AS createdAt,r.approved FROM product_reviews r LEFT JOIN products p ON p.id=r.product_id ORDER BY r.created_at DESC LIMIT 100`).all();
+  return json({ ok:true, reviews:rows?.results||[] });
+}
+
+
 export async function onRequestPost(context) {
   if (!(await requireAdmin(context))) return bad('نیاز به ورود مدیر دارید.', 401);
   const b = await requireJson(context);
