@@ -170,10 +170,11 @@
       <!-- Quick Search & Sort -->
       <div class="flex flex-wrap items-center gap-3">
         <!-- Search Input -->
-        <div class="relative w-full sm:w-64">
-          <input type="text" id="catalog-search-input" placeholder="جستجو بر اساس نام محصول..." 
-                 class="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pr-9 pl-3 text-xs outline-none focus:border-orange-500 focus:bg-white transition">
-          <i class="fa-solid fa-magnifying-glass absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <div class="relative w-full sm:w-72 fox-catalog-search-wrap">
+          <input type="text" id="catalog-search-input" placeholder="نام محصول، برند، طعم یا نیاز گربه..." 
+                 class="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pr-11 pl-11 text-xs outline-none focus:border-orange-500 focus:bg-white transition" autocomplete="off">
+          <i class="fa-solid fa-magnifying-glass fox-catalog-search-icon"></i>
+          <button id="catalog-search-trigger" type="button" class="fox-catalog-search-button" aria-label="جستجو" title="جستجو"><i class="fa-solid fa-arrow-left"></i></button>
         </div>
 
         <!-- Sort Select -->
@@ -182,6 +183,7 @@
           <option value="price-asc">ارزان‌ترین قیمت</option>
           <option value="price-desc">گران‌ترین قیمت</option>
           <option value="discount">بیشترین درصد تخفیف</option>
+          <option value="bestseller">پرفروش‌ترین‌ها</option>
         </select>
       </div>
     </div>
@@ -447,7 +449,8 @@
       const container = document.getElementById("catalog-products-grid");
       const emptyView = document.getElementById("catalog-empty-view");
       const sortVal = document.getElementById("catalog-sort-select")?.value || "default";
-      const searchQuery = document.getElementById("catalog-search-input")?.value.trim().toLowerCase() || "";
+      const normalizeCatalogSearch = value => String(value || "").replace(/[يی]/g,"ی").replace(/[كک]/g,"ک").replace(/[ً-ٰٟ]/g,"").replace(/[۰-۹]/g,d=>String("۰۱۲۳۴۵۶۷۸۹".indexOf(d))).toLowerCase().replace(/[^a-z0-9؀-ۿ]+/gi," ").trim();
+      const searchQuery = normalizeCatalogSearch(document.getElementById("catalog-search-input")?.value || "");
 
       if (!container) return;
 
@@ -460,10 +463,11 @@
 
       // Filter by Search Query
       if (searchQuery) {
-        filtered = filtered.filter(p => 
-          p.name.toLowerCase().includes(searchQuery) ||
-          (p.shortDesc && p.shortDesc.toLowerCase().includes(searchQuery))
-        );
+        filtered = filtered.filter(p => {
+          const d = p.details || {};
+          const hay = normalizeCatalogSearch([p.name,p.shortDesc,p.fullDesc,d.brand,d.weight,d.volume,d.flavor,d.suitableAge,d.goals,d.country,d.barcode,Array.isArray(d.tags)?d.tags.join(" "):d.tags].join(" "));
+          return searchQuery.split(/\s+/).filter(Boolean).every(token => hay.includes(token));
+        });
       }
 
       // Sorting

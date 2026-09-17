@@ -585,7 +585,6 @@
     function initPage() {
       renderHomeCategories();
       renderHomeFeatured();
-      renderHomeBestSellers();
     }
 
     function renderHomeCategories() {
@@ -622,15 +621,6 @@
         .join("");
     }
 
-    function renderHomeBestSellers() {
-      const container = document.getElementById("home-bestseller-grid");
-      if (!container) return;
-
-      const best = products.filter(p => p.isBestSeller || p.isNew);
-      container.innerHTML = (best.length > 0 ? best : products.slice(4, 8))
-        .map(p => renderProductCard(p))
-        .join("");
-    }
 
     function renderProductCard(prod) {
       const discount = prod.discountPercent || (prod.originalPrice > prod.finalPrice ? Math.round(((prod.originalPrice - prod.finalPrice)/prod.originalPrice)*100) : 0);
