@@ -1381,3 +1381,81 @@ body::after,
   }
   .fox-product-sticker-item { min-width:0; }
 }
+
+
+/* =========================================================
+   FoxShop V15 — random product sticker + lightweight rainbow hero
+   ========================================================= */
+.fox-hero-rainbow-text {
+  display: inline;
+  background-image: linear-gradient(90deg, #ff3b30 0%, #ff9500 16%, #ffd60a 32%, #34c759 48%, #32ade6 64%, #5856d6 80%, #af52de 100%);
+  background-size: 260% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: foxHeroRainbowShift 8s ease-in-out infinite alternate;
+  will-change: background-position;
+}
+.fox-hero-rainbow-text .underline {
+  -webkit-text-fill-color: transparent;
+}
+@keyframes foxHeroRainbowShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.fox-product-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+.fox-product-title-row h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fox-random-product-sticker {
+  flex: 0 0 auto;
+  width: 72px;
+  min-width: 72px;
+  padding: 5px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: linear-gradient(145deg, #fffaf5 0%, #fff0f7 52%, #f2edff 100%);
+  border: 1px solid rgba(244,123,48,.18);
+  box-shadow: 0 8px 20px rgba(82,48,31,.08);
+  overflow: hidden;
+}
+.fox-random-product-sticker img {
+  width: 58px;
+  height: 58px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 8px rgba(44,31,52,.11));
+}
+.fox-random-product-sticker small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 8px;
+  line-height: 1.4;
+  font-weight: 900;
+  color: #725d78;
+}
+@media (max-width: 560px) {
+  .fox-product-title-row { gap: 9px; align-items: flex-start; }
+  .fox-random-product-sticker { width: 60px; min-width: 60px; border-radius: 15px; padding: 4px; }
+  .fox-random-product-sticker img { width: 48px; height: 48px; }
+  .fox-random-product-sticker small { font-size: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fox-hero-rainbow-text { animation: none !important; }
+}
