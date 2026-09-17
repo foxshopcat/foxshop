@@ -1206,3 +1206,67 @@ main,header,footer,section,article,nav,.max-w-7xl,.grid,.flex{min-width:0}
   #product-page-root>div>section{padding:12px !important;border-radius:20px !important}
   #product-page-root .fox-review-layout{grid-template-columns:minmax(0,1fr) !important}
 }
+
+/* =========================================================
+   FoxShop Visual Patch — bright orange hero + visible mobile logo
+   + premium sticker pack
+   ========================================================= */
+#home-hero-premium.fox-hero-vibrant{
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255,255,255,.55), transparent 28%),
+    radial-gradient(circle at 88% 18%, rgba(255,232,202,.70), transparent 32%),
+    linear-gradient(135deg,#ffd7a1 0%,#ffbd73 46%,#ff9e57 100%) !important;
+  border-color:rgba(255,255,255,.46) !important;
+  box-shadow:0 26px 64px rgba(235,126,45,.20) !important;
+  color:#3a2519 !important;
+}
+#home-hero-premium.fox-hero-vibrant p{color:#613f2b !important}
+#home-hero-premium.fox-hero-vibrant .underline{text-decoration-color:#fff2d8 !important}
+#home-hero-premium.fox-hero-vibrant .bg-white\/20{background:rgba(255,255,255,.60) !important;border-color:rgba(255,255,255,.58) !important;color:#4a3020 !important}
+#home-hero-premium .fox-hero-brand-card{min-width:0}
+
+/* Sticker pack */
+.fox-sticker-pack{
+  position:relative;
+  overflow:hidden;
+  border-radius:28px;
+  padding:20px;
+  background:
+    radial-gradient(circle at 10% 15%,rgba(255,185,120,.22),transparent 25%),
+    radial-gradient(circle at 90% 20%,rgba(166,137,255,.18),transparent 25%),
+    linear-gradient(135deg,#fffaf5,#fff7fb 55%,#f5f1ff);
+  border:1px solid rgba(244,123,48,.16);
+  box-shadow:0 18px 42px rgba(64,39,84,.08);
+}
+.fox-sticker-pack-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+.fox-sticker-kicker{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:linear-gradient(135deg,#fff0df,#f1e8ff);color:#7a4b2c;font-size:10px;font-weight:900;border:1px solid rgba(151,112,220,.14)}
+.fox-sticker-pack h2{margin:8px 0 2px;font-size:18px;font-weight:950;color:#35283b}
+.fox-sticker-pack p{margin:0;color:#887b91;font-size:11px;line-height:1.9}
+.fox-sticker-pack-badge{flex:0 0 auto;display:flex;align-items:center;gap:7px;padding:10px 13px;border-radius:16px;background:linear-gradient(135deg,#ffb36f,#a982ef);color:#fff;font-size:10px;font-weight:900;box-shadow:0 12px 26px rgba(160,118,216,.18)}
+.fox-sticker-strip{display:grid;grid-template-columns:repeat(10,minmax(90px,1fr));gap:10px;overflow-x:auto;padding:2px 2px 5px;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
+.fox-sticker-item{min-width:90px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 6px 7px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.90);box-shadow:0 8px 18px rgba(80,52,98,.07);transition:transform .18s ease,box-shadow .18s ease}
+.fox-sticker-item:hover{transform:translateY(-3px);box-shadow:0 12px 24px rgba(80,52,98,.12)}
+.fox-sticker-item img{width:78px;height:78px;display:block;object-fit:contain;filter:drop-shadow(0 7px 9px rgba(44,31,52,.11))}
+.fox-sticker-item span{font-size:9px;font-weight:900;color:#65566e;white-space:nowrap}
+
+@media (max-width:900px){
+  #home-hero-premium .fox-hero-brand-card{display:flex !important;justify-content:center !important;grid-column:span 1 / span 1 !important}
+  #home-hero-premium .fox-hero-brand-card > div{width:190px !important;max-width:78vw !important;padding:10px !important;border-radius:24px !important}
+  #home-hero-premium .fox-hero-brand-card > div > div:first-child{width:118px !important;height:118px !important;padding:7px !important;border-radius:20px !important}
+  #home-hero-premium .fox-hero-brand-card > div > div:last-child{margin-top:8px !important}
+  #home-hero-premium .fox-hero-brand-card p{font-size:10px !important}
+  .fox-sticker-pack{padding:15px;border-radius:22px}
+  .fox-sticker-pack-head{align-items:flex-start;flex-direction:column}
+  .fox-sticker-pack-badge{padding:8px 11px}
+  .fox-sticker-strip{grid-template-columns:repeat(10,86px);gap:8px}
+  .fox-sticker-item{min-width:86px;border-radius:16px;padding:6px 5px}
+  .fox-sticker-item img{width:70px;height:70px}
+}
+
+@media (max-width:520px){
+  #home-hero-premium.fox-hero-vibrant{padding:16px !important;border-radius:22px !important}
+  #home-hero-premium .fox-hero-brand-card > div{width:170px !important}
+  #home-hero-premium .fox-hero-brand-card > div > div:first-child{width:104px !important;height:104px !important}
+  .fox-sticker-pack h2{font-size:16px}
+  .fox-sticker-pack p{font-size:10px}
+}
