@@ -143,7 +143,10 @@ function applyRemoteStore(store) {
   customerStories = Array.isArray(store.customerStories) ? store.customerStories : [];
   lastRemoteStore = { categories, products, settings: { ...settings }, customerStories };
   backendReady = true;
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
+  if (typeof window !== 'undefined') {
+    window.__FOXSHOP_STORE_READY__ = true;
+    window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
+  }
   return true;
 }
 
@@ -201,7 +204,10 @@ async function initStorage() {
     const savedCart = localStorage.getItem(LS_CART);
     cart = normalizeCart(savedCart ? JSON.parse(savedCart) : []);
   } catch { cart = []; }
-  if (!backendReady && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
+  if (!backendReady && typeof window !== 'undefined') {
+    window.__FOXSHOP_STORE_READY__ = true;
+    window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
+  }
 }
 
 function saveCart() {
@@ -318,32 +324,49 @@ function initHeader() {
 /**
  * Cart Functionality
  */
+function syncMobileBottomNavWithCart() {
+  const drawer = document.getElementById("cart-drawer");
+  const nav = document.getElementById("fox-mobile-bottom-nav");
+  if (!drawer || !nav) return;
+  nav.classList.toggle("is-cart-open", !drawer.classList.contains("hidden"));
+}
+
+function setCartDrawerOpen(open) {
+  const drawer = document.getElementById("cart-drawer");
+  if (!drawer) return;
+  if (open) {
+    renderCartDrawer();
+    drawer.classList.remove("hidden");
+  } else {
+    drawer.classList.add("hidden");
+  }
+  syncMobileBottomNavWithCart();
+}
+
 function initCartUI() {
   const cartTrigger = document.getElementById("cart-trigger-btn");
   const cartDrawer = document.getElementById("cart-drawer");
   const closeCartBtn = document.getElementById("close-cart-btn");
 
-  if (cartTrigger && cartDrawer) {
-    cartTrigger.addEventListener("click", () => {
-      renderCartDrawer();
-      cartDrawer.classList.remove("hidden");
-    });
+  if (cartTrigger && cartDrawer && !cartTrigger.dataset.foxCartBound) {
+    cartTrigger.dataset.foxCartBound = "1";
+    cartTrigger.addEventListener("click", () => setCartDrawerOpen(true));
   }
 
-  if (closeCartBtn && cartDrawer) {
-    closeCartBtn.addEventListener("click", () => {
-      cartDrawer.classList.add("hidden");
-    });
+  if (closeCartBtn && cartDrawer && !closeCartBtn.dataset.foxCartBound) {
+    closeCartBtn.dataset.foxCartBound = "1";
+    closeCartBtn.addEventListener("click", () => setCartDrawerOpen(false));
   }
 
   // Close when clicking outside overlay
-  if (cartDrawer) {
+  if (cartDrawer && !cartDrawer.dataset.foxCartOverlayBound) {
+    cartDrawer.dataset.foxCartOverlayBound = "1";
     cartDrawer.addEventListener("click", (e) => {
-      if (e.target === cartDrawer) {
-        cartDrawer.classList.add("hidden");
-      }
+      if (e.target === cartDrawer) setCartDrawerOpen(false);
     });
   }
+
+  syncMobileBottomNavWithCart();
 }
 
 function addToCart(productId, quantity = 1) {
@@ -753,12 +776,7 @@ function toggleMobileMenu() {
 function toggleCartDrawer() {
   const drawer = document.getElementById("cart-drawer");
   if (!drawer) return;
-  if (drawer.classList.contains("hidden")) {
-    renderCartDrawer();
-    drawer.classList.remove("hidden");
-  } else {
-    drawer.classList.add("hidden");
-  }
+  setCartDrawerOpen(drawer.classList.contains("hidden"));
 }
 
 function openAdminPortalModal() {

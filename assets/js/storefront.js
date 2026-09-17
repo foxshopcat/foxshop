@@ -382,8 +382,13 @@
         const urlSearch = params.get('search') || '';
         const onlyDiscounted = params.get('discount') === '1';
         const searchInput = document.getElementById('catalog-search-input');
-        if (searchInput && urlSearch && !searchInput.value) searchInput.value = urlSearch;
-        const searchQuery = searchInput?.value || urlSearch || '';
+        if (searchInput && urlSearch && !searchInput.dataset.foxUrlSeeded) {
+          searchInput.value = urlSearch;
+          searchInput.dataset.foxUrlSeeded = '1';
+        }
+        // Once the input exists, it is authoritative. Never fall back to the old URL query
+        // after the user clears or replaces it.
+        const searchQuery = searchInput ? searchInput.value : urlSearch;
         const sortVal = document.getElementById('catalog-sort-select')?.value || 'default';
         let filtered = [...(window.products || [])];
         if (activeCategory !== 'all') filtered = filtered.filter(p => p.categoryId === activeCategory);
@@ -428,7 +433,18 @@
     const searchInput=document.getElementById('catalog-search-input');
     if(searchInput && !searchInput.dataset.foxEnhancedSearch){
       searchInput.dataset.foxEnhancedSearch='1';
-      searchInput.addEventListener('input',()=>{ if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog(); });
+      if (new URLSearchParams(window.location.search).get('search')) searchInput.dataset.foxUrlSeeded='1';
+      searchInput.addEventListener('input',()=>{
+        // Persist the live value in the URL so an old search can never reappear after clearing.
+        try {
+          const url = new URL(window.location.href);
+          const value = searchInput.value.trim();
+          if (value) url.searchParams.set('search', value);
+          else url.searchParams.delete('search');
+          window.history.replaceState(null, '', url.pathname + (url.search ? url.search : '') + (url.hash || ''));
+        } catch (_) {}
+        if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog();
+      });
       searchInput.addEventListener('keydown',e=>{
         if(e.key==='Enter'){
           e.preventDefault();
@@ -499,10 +515,37 @@
 
   function addTrustToExistingPriceAreas() { /* Trust is intentionally shown once in the footer only. */ }
 
+  function getProductIdFromLocation() {
+    const params = new URLSearchParams(location.search);
+    const queryId = params.get('id') || params.get('product') || params.get('pid');
+    if (queryId) return queryId;
+
+    const parts = location.pathname.split('/').filter(Boolean);
+    const productIndex = parts.findIndex(part => part.toLowerCase() === 'product');
+    if (productIndex >= 0 && parts[productIndex + 1]) return parts[productIndex + 1];
+
+    const last = parts[parts.length - 1] || '';
+    if (last && !/^product(?:\.html)?$/i.test(last) && !/^index\.html$/i.test(last)) return last;
+    return '';
+  }
+
   function renderProductPage() {
     const root=document.getElementById('product-page-root'); if(!root) return;
-    const id=new URLSearchParams(location.search).get('id') || location.pathname.split('/').filter(Boolean).pop();
-    const p=getProduct(decodeURIComponent(id||''));
+    const rawId = getProductIdFromLocation();
+    let id = '';
+    try { id = decodeURIComponent(String(rawId || '')).trim(); } catch (_) { id = String(rawId || '').trim(); }
+
+    // The public catalog is loaded asynchronously from D1. Never replace the product page
+    // with a false "not found" state before that catalog has arrived. The store-ready event
+    // calls this function again as soon as data becomes available.
+    const storeReady = window.__FOXSHOP_STORE_READY__ === true;
+    const catalog = Array.isArray(window.products) ? window.products : [];
+    if (!id || (!storeReady && catalog.length === 0)) {
+      root.innerHTML = '<div class="fox-product-loading"><div class="fox-product-loading-orb"><i class="fa-solid fa-paw"></i></div><h1>در حال آماده‌سازی صفحه محصول…</h1><p>کمی صبر کنید تا اطلاعات فروشگاه بارگذاری شود.</p></div>';
+      return;
+    }
+
+    const p=getProduct(id);
     if(!p){ root.innerHTML='<div class="bg-white rounded-3xl p-10 text-center"><h1 class="text-xl font-black">محصول پیدا نشد</h1><p class="text-xs text-slate-500 mt-2">ممکن است محصول حذف شده یا لینک قدیمی باشد.</p><a href="products.html" class="inline-block mt-5 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">بازگشت به فروشگاه</a></div>'; return; }
     const x=inferredDetails(p); const reviews=Array.isArray(p.reviews)?p.reviews:[];
     const relatedIds=(x.relatedIds||[]).map(String).filter(v=>v!==String(p.id));
@@ -738,6 +781,7 @@
   // Re-render additive sections once the remote D1 catalog or local fallback has finished loading.
   window.addEventListener('foxshop:store-ready', () => {
     setTimeout(refreshAfterStoreReady, 0);
+    setTimeout(() => { if (document.getElementById('product-page-root')) renderProductPage(); }, 0);
     const liveInput=document.getElementById('fox-search-modal-input');
     if(liveInput) renderGlobalSearchSuggestions(liveInput.value || '');
   }, { passive: true });
