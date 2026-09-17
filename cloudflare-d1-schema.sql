@@ -54,6 +54,33 @@ CREATE TABLE IF NOT EXISTS products (
   image_key TEXT NOT NULL DEFAULT '',
   short_desc TEXT NOT NULL DEFAULT '',
   full_desc TEXT NOT NULL DEFAULT '',
+  slug TEXT NOT NULL DEFAULT '',
+  brand TEXT NOT NULL DEFAULT '',
+  weight TEXT NOT NULL DEFAULT '',
+  flavor TEXT NOT NULL DEFAULT '',
+  age_range TEXT NOT NULL DEFAULT '',
+  goal TEXT NOT NULL DEFAULT '',
+  ingredients TEXT NOT NULL DEFAULT '',
+  nutrition_analysis TEXT NOT NULL DEFAULT '',
+  country_of_origin TEXT NOT NULL DEFAULT '',
+  barcode TEXT NOT NULL DEFAULT '',
+  expiration_date TEXT NOT NULL DEFAULT '',
+  usage TEXT NOT NULL DEFAULT '',
+  warranty TEXT NOT NULL DEFAULT '',
+  storage TEXT NOT NULL DEFAULT '',
+  authenticity TEXT NOT NULL DEFAULT '',
+  stock_quantity INTEGER NOT NULL DEFAULT 0,
+  min_stock INTEGER NOT NULL DEFAULT 0,
+  restock_time TEXT NOT NULL DEFAULT '',
+  rating REAL NOT NULL DEFAULT 0,
+  sales_count INTEGER NOT NULL DEFAULT 0,
+  extra_images TEXT NOT NULL DEFAULT '[]',
+  related_product_ids TEXT NOT NULL DEFAULT '[]',
+  complementary_product_ids TEXT NOT NULL DEFAULT '[]',
+  faq TEXT NOT NULL DEFAULT '[]',
+  is_consumable INTEGER NOT NULL DEFAULT 0,
+  shipping_note TEXT NOT NULL DEFAULT '',
+  return_policy TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (category_id) REFERENCES categories(id) ON UPDATE CASCADE
@@ -76,6 +103,20 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS product_reviews (
+  id TEXT PRIMARY KEY,
+  product_id TEXT NOT NULL,
+  customer_name TEXT NOT NULL,
+  body TEXT NOT NULL,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  photo_url TEXT NOT NULL DEFAULT '',
+  approved INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_reviews_approved ON product_reviews(approved, created_at);
+
 -- Initial admin account.
 -- Username: admin
 -- Initial password: admin123
@@ -94,9 +135,16 @@ VALUES (
 INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES
 ('shopName', '"FoxShop"', datetime('now')),
 ('phone', '"+98 993 419 1774"', datetime('now')),
-('telegramUser', '"foxshop_cat"', datetime('now')),
 ('instagramUrl', '"https://www.instagram.com/foxshop.cat?stkn=MTRud2VncmpudDZpeg=="', datetime('now')),
-('aboutText', '"پت‌شاپ FoxShop با هدف ارائه مرغوب‌ترین و اصیل‌ترین خوراک و ملزومات گربه‌ها ایجاد شده است. ما اهمیت عشق و مراقبتی که نسبت به گربه‌تان دارید را درک می‌کنیم؛ از این رو تمامی محصولات ما دست‌چین شده از معتبرترین برندهای جهانی با تضمین کیفیت، اصالت و انقضای معتبر می‌باشند."', datetime('now'));
+('aboutText', '"پت‌شاپ FoxShop در تبریز با هدف ارائه مرغوب‌ترین و اصیل‌ترین خوراک و ملزومات گربه‌ها فعالیت می‌کند."', datetime('now')),
+('shopCity', '"تبریز"', datetime('now')),
+('freeShippingThreshold', '2000000', datetime('now')),
+('shippingTable', '"هزینه و زمان ارسال بر اساس شهر و روش ارسال هنگام ثبت سفارش اعلام می‌شود."', datetime('now')),
+('returnPolicy', '"سیاست مرجوعی: کالا باید سالم، استفاده‌نشده و مطابق شرایط اعلام‌شده در فاکتور تحویل باشد."', datetime('now')),
+('storageText', '"شرایط نگهداری هر محصول در صفحه همان محصول درج می‌شود."', datetime('now')),
+('authenticityText', '"ضمانت اصالت کالا بر اساس فاکتور فروشگاه و شرایط اعلام‌شده در سفارش."', datetime('now')),
+('licenseText', '""', datetime('now')),
+('supportText', '"پشتیبانی و ثبت سفارش از طریق اینستاگرام و روبیکا انجام می‌شود."', datetime('now'));
 
 INSERT OR IGNORE INTO categories(id,name,slug,image,image_key,icon,color,sort_order,created_at,updated_at) VALUES ('cat_dry_food','غذای خشک گربه','Dry Cat Food','https://images.unsplash.com/photo-1589924691995-400dc9ecc119?auto=format&fit=crop&w=400&q=80&fm=webp','','fa-bowl-food','from-orange-500 to-amber-500',0,datetime('now'),datetime('now'));
 INSERT OR IGNORE INTO categories(id,name,slug,image,image_key,icon,color,sort_order,created_at,updated_at) VALUES ('cat_wet_food','کنسرو و پوچ لذیذ','Wet Food & Pouches','https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=400&q=80&fm=webp','','fa-fish','from-rose-500 to-pink-500',0,datetime('now'),datetime('now'));
