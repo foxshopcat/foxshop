@@ -161,70 +161,6 @@ input[type=number]::-webkit-outer-spin-button {
   border-right: 4px solid #ef4444;
 }
 
-/* Product Click Lightweight Logo Reveal Animation */
-#fox-product-loader {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-#fox-product-loader.active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-#fox-product-loader.closing {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.fox-loader-card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 28px;
-  padding: 22px 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  box-shadow: 0 20px 45px rgba(234, 88, 12, 0.28), 0 0 0 1px rgba(254, 215, 170, 0.6);
-  transform: scale(0.85);
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-#fox-product-loader.active .fox-loader-card {
-  transform: scale(1);
-}
-
-.fox-loader-logo-ring {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  padding: 6px;
-  border: 1.5px solid #fed7aa;
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.35);
-  animation: logoPulseAura 1.4s ease-in-out infinite alternate;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-@keyframes logoPulseAura {
-  0% { transform: scale(0.98); box-shadow: 0 0 15px rgba(249, 115, 22, 0.25); }
-  100% { transform: scale(1.04); box-shadow: 0 0 28px rgba(249, 115, 22, 0.55); }
-}
-
 /* Category Card with WebP Background Image */
 .cat-card-bg-img {
   background-size: cover;
@@ -656,7 +592,6 @@ input[type=number]::-webkit-outer-spin-button {
   .glass-nav,
   .glass-card,
   .fox-cat-corner,
-  #fox-product-loader,
   [class*="backdrop-blur"],
   [style*="backdrop-filter"] {
     -webkit-backdrop-filter: none !important;
@@ -1344,4 +1279,105 @@ html.fox-page-loading body { overflow: hidden !important; }
 .fox-cat-pattern, .fox-cat-corner { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   #fox-global-page-loader, .fox-global-loader-spinner { transition: none !important; animation: none !important; }
+}
+
+
+/* =========================================================
+   FoxShop V13 — mobile hero logo + guaranteed sticker-pack visibility
+   ========================================================= */
+@media (max-width:640px){
+  #home-hero-premium.fox-hero-vibrant .fox-hero-brand-card,
+  #home-hero-premium.fox-hero-vibrant .lg\:col-span-4{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+  #home-hero-premium.fox-hero-vibrant .fox-hero-brand-card > div{
+    display:flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+}
+.fox-sticker-pack{display:block !important;visibility:visible !important;opacity:1 !important}
+.fox-sticker-strip{display:grid !important;overflow-x:auto !important}
+.fox-sticker-item{display:flex !important;visibility:visible !important;opacity:1 !important}
+.fox-sticker-item img{display:block !important;visibility:visible !important;opacity:1 !important}
+
+/* =========================================================
+   FoxShop V14 — direct product navigation + reliable stickers
+   ========================================================= */
+
+#home-hero-premium .fox-hero-brand-card,
+#home-hero-premium .fox-hero-brand-card > div {
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+#home-hero-premium .fox-hero-brand-card img {
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  object-fit:contain !important;
+  min-width:0 !important;
+}
+
+/* Remove transition/decorative flashes from the actual document paint. */
+.fox-cat-pattern,
+.fox-cat-corner,
+body::before,
+body::after,
+.product-card-item::before,
+#catalog-products-grid > div::before,
+.product-card-item::after,
+#catalog-products-grid > div::after,
+#product-page-root > div > section:first-of-type::before,
+#product-page-root > div > section:first-of-type::after {
+  display:none !important;
+  content:none !important;
+}
+
+.fox-product-sticker-pack { margin-top:0; }
+.fox-product-sticker-grid {
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:12px;
+  align-items:stretch;
+}
+.fox-product-sticker-item {
+  min-width:0;
+  overflow:hidden;
+  justify-content:flex-start;
+  background:rgba(255,255,255,.90) !important;
+  border:1px solid rgba(244,123,48,.14) !important;
+}
+.fox-product-sticker-art {
+  width:100%;
+  aspect-ratio:1/1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  background:linear-gradient(145deg,#fffaf5,#f5f1ff);
+  overflow:hidden;
+}
+.fox-product-sticker-art img {
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
+@media (max-width:900px){
+  .fox-product-sticker-grid {
+    grid-template-columns:repeat(5,minmax(82px,1fr));
+    overflow-x:auto;
+    padding-bottom:4px;
+  }
+  .fox-product-sticker-item { min-width:82px; }
+}
+@media (max-width:560px){
+  .fox-product-sticker-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    overflow:visible;
+  }
+  .fox-product-sticker-item { min-width:0; }
 }
