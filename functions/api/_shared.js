@@ -239,7 +239,13 @@ function safeJsonArray(value) {
 }
 
 export async function getStore(db) {
-  await ensureStoreSchema(db);
+  // Never let optional enhancement migrations take down the existing catalog.
+  // The original product tables must remain readable even if a new column cannot be added.
+  try {
+    await ensureStoreSchema(db);
+  } catch (migrationError) {
+    console.error('Optional store migration failed:', migrationError);
+  }
 
   const [cats, prods, rows] = await Promise.all([
     db.prepare('SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories ORDER BY sort_order ASC, created_at ASC').all(),
