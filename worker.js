@@ -12,9 +12,10 @@ import { onRequestPut as adminCategoryUpdate, onRequestDelete as adminCategoryDe
 import { onRequestPost as adminImport } from './functions/api/admin/import.js';
 import { onRequestPost as adminReset } from './functions/api/admin/reset.js';
 import { onRequestPost as adminUploadImage } from './functions/api/admin/upload-image.js';
-import { onRequestPost as adminReviewCreate } from './functions/api/admin/review.js';
-import { onRequestDelete as adminReviewDelete } from './functions/api/admin/review/[id].js';
+import { onRequestPost as adminReviewCreate, onRequestGet as adminReviewList } from './functions/api/admin/review.js';
+import { onRequestDelete as adminReviewDelete, onRequestPut as adminReviewModerate } from './functions/api/admin/review/[id].js';
 import { onRequestPost as adminStoryCreate } from './functions/api/admin/story.js';
+import { onRequestPost as publicReviewCreate } from './functions/api/review.js';
 import { onRequestDelete as adminStoryDelete } from './functions/api/admin/story/[id].js';
 import { bad } from './functions/api/_shared.js';
 
@@ -86,6 +87,7 @@ function matchApi(url, request) {
 
   if (p === '/api/health' && method === 'GET') return [healthHandler, {}];
   if (p === '/api/store' && method === 'GET') return [getStore, {}];
+  if (p === '/api/review' && method === 'POST') return [publicReviewCreate, {}];
   if (p === '/api/admin/login' && method === 'POST') return [adminLogin, {}];
   if (p === '/api/admin/logout' && method === 'POST') return [adminLogout, {}];
   if (p === '/api/admin/me' && method === 'GET') return [adminMe, {}];
@@ -97,6 +99,7 @@ function matchApi(url, request) {
   if (p === '/api/admin/reset' && method === 'POST') return [adminReset, {}];
   if (p === '/api/admin/upload-image' && method === 'POST') return [adminUploadImage, {}];
   if (p === '/api/admin/review' && method === 'POST') return [adminReviewCreate, {}];
+  if (p === '/api/admin/review' && method === 'GET') return [adminReviewList, {}];
   if (p === '/api/admin/story' && method === 'POST') return [adminStoryCreate, {}];
 
   let m = p.match(/^\/api\/admin\/product\/([^/]+)$/);
@@ -109,6 +112,7 @@ function matchApi(url, request) {
 
   m = p.match(/^\/api\/admin\/review\/([^/]+)$/);
   if (m && method === 'DELETE') return [adminReviewDelete, { id: decodeURIComponent(m[1]) }];
+  if (m && method === 'PUT') return [adminReviewModerate, { id: decodeURIComponent(m[1]) }];
   m = p.match(/^\/api\/admin\/story\/([^/]+)$/);
   if (m && method === 'DELETE') return [adminStoryDelete, { id: decodeURIComponent(m[1]) }];
 

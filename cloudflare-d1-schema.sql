@@ -164,6 +164,19 @@ CREATE TABLE IF NOT EXISTS product_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved);
 
+CREATE TABLE IF NOT EXISTS review_submission_log (
+  id TEXT PRIMARY KEY,
+  fingerprint TEXT NOT NULL,
+  product_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at);
+
+CREATE TABLE IF NOT EXISTS foxshop_migrations (
+  id TEXT PRIMARY KEY,
+  applied_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS customer_stories (
   id TEXT PRIMARY KEY,
   customer_name TEXT NOT NULL DEFAULT '',
