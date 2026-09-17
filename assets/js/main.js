@@ -27,7 +27,7 @@ let settings = {
   instagramUrl: INSTAGRAM_URL,
   aboutText: "پت‌شاپ FoxShop در تبریز با هدف ارائه مرغوب‌ترین و اصیل‌ترین خوراک و ملزومات گربه‌ها ایجاد شده است. ما اهمیت عشق و مراقبتی که نسبت به گربه‌تان دارید را درک می‌کنیم؛ از این رو محصولات را با اطلاعات قابل بررسی درباره برند، اصالت و انقضا عرضه می‌کنیم.",
   storeLocation: "تبریز، ایران",
-  freeShippingThreshold: 2500000,
+  freeShippingThreshold: 3000000,
   shippingCost: 120000,
   shippingDispatchTime: "۱ تا ۲ روز کاری",
   returnPolicy: "شرایط مرجوعی طبق سیاست ثبت‌شده فروشگاه و با بررسی وضعیت کالا انجام می‌شود.",
@@ -41,6 +41,10 @@ let adminUsername = DEFAULT_ADMIN_USERNAME;
 let backendReady = false;
 let lastRemoteStore = null;
 let customerStories = [];
+if (typeof window !== 'undefined') {
+  window.__FOXSHOP_STORE_READY__ = false;
+  window.__FOXSHOP_STORE_LOADING__ = true;
+}
 
 // Safe read-only bridges for additive storefront modules. Existing internal state remains the source of truth.
 if (typeof window !== "undefined") {
@@ -116,23 +120,33 @@ function normalizeCart(list) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(`/api${path}`, {
-    credentials: "same-origin",
-    ...options,
-    headers: {
-      ...(options.body instanceof FormData ? {} : { "content-type": "application/json" }),
-      ...(options.headers || {})
+  const { timeoutMs = 0, ...requestOptions } = options || {};
+  const controller = timeoutMs > 0 && typeof AbortController !== "undefined" ? new AbortController() : null;
+  let timeoutId = null;
+  if (controller) timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const fetchOptions = {
+      credentials: "same-origin",
+      ...requestOptions,
+      headers: {
+        ...(requestOptions.body instanceof FormData ? {} : { "content-type": "application/json" }),
+        ...(requestOptions.headers || {})
+      }
+    };
+    if (controller && !fetchOptions.signal) fetchOptions.signal = controller.signal;
+    const response = await fetch(`/api${path}`, fetchOptions);
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { data = { ok: false, error: text || "پاسخ نامعتبر از سرور" }; }
+    if (!response.ok || data?.ok === false) {
+      const err = new Error(data?.error || `HTTP ${response.status}`);
+      err.status = response.status;
+      throw err;
     }
-  });
-  const text = await response.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = { ok: false, error: text || "پاسخ نامعتبر از سرور" }; }
-  if (!response.ok || data?.ok === false) {
-    const err = new Error(data?.error || `HTTP ${response.status}`);
-    err.status = response.status;
-    throw err;
+    return data;
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
-  return data;
 }
 
 function applyRemoteStore(store) {
@@ -145,13 +159,14 @@ function applyRemoteStore(store) {
   backendReady = true;
   if (typeof window !== 'undefined') {
     window.__FOXSHOP_STORE_READY__ = true;
+    window.__FOXSHOP_STORE_LOADING__ = false;
     window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
   }
   return true;
 }
 
 async function refreshRemoteStore() {
-  const data = await apiRequest("/store");
+  const data = await apiRequest("/store", { timeoutMs: 6000 });
   applyRemoteStore(data);
   return data;
 }
@@ -206,6 +221,7 @@ async function initStorage() {
   } catch { cart = []; }
   if (!backendReady && typeof window !== 'undefined') {
     window.__FOXSHOP_STORE_READY__ = true;
+    window.__FOXSHOP_STORE_LOADING__ = false;
     window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
   }
 }

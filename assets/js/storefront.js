@@ -7,7 +7,7 @@
   const LS_COMPARE = 'foxshop_compare_v1';
   const LS_RESTOCK = 'foxshop_restock_v1';
   const LS_QUIZ = 'foxshop_quiz_v1';
-  const FREE_SHIPPING_DEFAULT = 2500000;
+  const FREE_SHIPPING_DEFAULT = 3000000;
   const SHOP_LOCATION = 'تبریز، ایران';
   const INSTAGRAM_URL = 'https://www.instagram.com/foxshop.cat?stkn=MTRud2VncmpudDZpeg==';
   const RUBIKA_URL = 'https://rubika.ir/baloot_cats';
@@ -23,7 +23,12 @@
   function getCompare() { return readList(LS_COMPARE); }
   function getRestock() { return readList(LS_RESTOCK); }
 
-  function getProduct(id) { return Array.isArray(window.products) ? window.products.find(p => String(p.id) === String(id)) : null; }
+  function getProduct(id) {
+    if (!Array.isArray(window.products)) return null;
+    const key = String(id ?? '').trim();
+    if (!key) return null;
+    return window.products.find(p => String(p?.id ?? '').trim() === key) || null;
+  }
   function d(p) { return p?.details || {}; }
   // Use the static product page as the client link target. This works both on Cloudflare
   // Workers (pretty URLs are still supported there) and on a plain static asset deployment.
@@ -170,8 +175,9 @@
   function toast(msg, type = 'success') { if (typeof window.showToast === 'function') window.showToast(msg, type); }
 
   window.openProductPage = function (id) {
-    const p = getProduct(id); if (!p) return;
-    window.location.href = productUrl(p);
+    const key = String(id ?? '').trim();
+    if (!key) return;
+    window.location.href = `product.html?id=${encodeURIComponent(key)}`;
   };
 
   window.isWishlisted = function (id) { return getWishlist().includes(String(id)); };
@@ -529,6 +535,22 @@
     return '';
   }
 
+  function buildProductSpecRows(p) {
+    const x = inferredDetails(p);
+    const rows = [
+      ['برند', x.brand], ['وزن', x.weight], ['حجم', x.volume], ['طعم', x.flavor],
+      ['مناسب برای', x.suitableAge], ['اهداف مصرف', x.goals], ['کشور سازنده', x.country],
+      ['بارکد', x.barcode], ['تاریخ انقضا', x.expiryDate], ['روش مصرف', x.usageMethod],
+      ['نحوه نگهداری', x.storage], ['گارانتی', x.warranty], ['اصالت کالا', x.authenticity]
+    ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '');
+    if (!rows.length) return '<p class="text-xs text-slate-400">مشخصات تکمیلی این محصول هنوز توسط فروشگاه ثبت نشده است.</p>';
+    return `<div class="divide-y divide-slate-100 rounded-2xl border border-slate-100 overflow-hidden">${rows.map(([label, value]) => `
+      <div class="grid grid-cols-[minmax(92px,0.7fr)_minmax(0,1.3fr)] gap-3 px-3.5 py-3 text-xs">
+        <span class="font-bold text-slate-500">${safeText(label)}</span>
+        <span class="font-semibold text-slate-800 break-words whitespace-pre-line">${safeText(value)}</span>
+      </div>`).join('')}</div>`;
+  }
+
   function renderProductPage() {
     const root=document.getElementById('product-page-root'); if(!root) return;
     const rawId = getProductIdFromLocation();
@@ -547,6 +569,7 @@
 
     const p=getProduct(id);
     if(!p){ root.innerHTML='<div class="bg-white rounded-3xl p-10 text-center"><h1 class="text-xl font-black">محصول پیدا نشد</h1><p class="text-xs text-slate-500 mt-2">ممکن است محصول حذف شده یا لینک قدیمی باشد.</p><a href="products.html" class="inline-block mt-5 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">بازگشت به فروشگاه</a></div>'; return; }
+    try {
     const x=inferredDetails(p); const reviews=Array.isArray(p.reviews)?p.reviews:[];
     const relatedIds=(x.relatedIds||[]).map(String).filter(v=>v!==String(p.id));
     let related=relatedIds.map(getProduct).filter(Boolean);
@@ -573,6 +596,10 @@
     updateWishlistUI(); updateRestockButtons(); updateCompareBar(); bindReviewForm();
     document.title=`${p.name} | FoxShop`;
     setMeta('description', (p.shortDesc||p.fullDesc||'').slice(0,155));
+    } catch (error) {
+      console.error('FoxShop product page render error:', error);
+      root.innerHTML = '<div class="fox-product-error"><div class="fox-product-error-orb"><i class="fa-solid fa-cat"></i></div><h1>نمایش این محصول با خطا روبه‌رو شد</h1><p>اطلاعات محصول کامل بارگذاری نشد. می‌توانید دوباره تلاش کنید.</p><button type="button" onclick="location.reload()">تلاش دوباره</button><a href="products.html">بازگشت به فروشگاه</a></div>';
+    }
   }
 
   window.repeatPurchase=function(id){
