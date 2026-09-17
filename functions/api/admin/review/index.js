@@ -6,7 +6,7 @@ export async function onRequestGet(context) {
   await ensureStoreSchema(context.env.DB);
 
   const rows = await context.env.DB.prepare(`
-    SELECT 
+    SELECT
       r.id,
       r.product_id AS productId,
       r.customer_name AS customerName,
@@ -45,8 +45,53 @@ export async function onRequestPost(context) {
     (product_id, customer_name, body, rating, approved, created_at)
     VALUES (?, ?, ?, ?, 0, datetime('now'))
   `)
-  .bind(productId, customerName, body, rating)
-  .run();
+    .bind(productId, customerName, body, rating)
+    .run();
+
+  return json({ ok: true });
+}
+
+export async function onRequestPut(context) {
+  if (!(await requireAdmin(context))) return bad('نیاز به ورود مدیر دارید.', 401);
+
+  await ensureStoreSchema(context.env.DB);
+
+  const data = await requireJson(context.request);
+  const id = Number(data.id);
+
+  if (!id) {
+    return bad('شناسه نظر نامعتبر است.', 400);
+  }
+
+  await context.env.DB.prepare(`
+    UPDATE reviews
+    SET approved = ?
+    WHERE id = ?
+  `)
+    .bind(data.approved ? 1 : 0, id)
+    .run();
+
+  return json({ ok: true });
+}
+
+export async function onRequestDelete(context) {
+  if (!(await requireAdmin(context))) return bad('نیاز به ورود مدیر دارید.', 401);
+
+  await ensureStoreSchema(context.env.DB);
+
+  const data = await requireJson(context.request);
+  const id = Number(data.id);
+
+  if (!id) {
+    return bad('شناسه نظر نامعتبر است.', 400);
+  }
+
+  await context.env.DB.prepare(`
+    DELETE FROM reviews
+    WHERE id = ?
+  `)
+    .bind(id)
+    .run();
 
   return json({ ok: true });
 }
