@@ -2490,4 +2490,234 @@ body::after,
     contain-intrinsic-size:520px;
   }
 }
+/* =========================================================
+   FoxShop Glass 3D Performance Layer — mobile-first, CSS-only
+   ========================================================= */
+
+:root{
+  --fox-glass-bg:rgba(255,255,255,.72);
+  --fox-glass-bg-strong:rgba(255,255,255,.86);
+  --fox-glass-line:rgba(255,255,255,.78);
+  --fox-glass-shadow:0 18px 50px rgba(38,24,14,.10),0 4px 18px rgba(255,122,24,.06);
+  --fox-3d-shadow:0 28px 70px rgba(38,24,14,.12),0 12px 26px rgba(255,122,24,.08);
+  --fox-glass-blur:16px;
+}
+
+html{background:#fffaf7;}
+body{
+  background:
+    radial-gradient(900px 420px at 8% -4%,rgba(255,154,75,.17),transparent 64%),
+    radial-gradient(760px 420px at 96% 8%,rgba(154,97,255,.10),transparent 60%),
+    radial-gradient(740px 460px at 50% 100%,rgba(255,95,162,.07),transparent 64%),
+    linear-gradient(180deg,#fffaf7 0%,#fffdfb 48%,#fff8f4 100%);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* Shared glass surfaces */
+.glass-nav,
+header.sticky,
+.product-card-item,
+.fox-review-section,
+.fox-review-card,
+.fox-review-form,
+.fox-approved-reviews,
+.fox-search-dialog,
+.fox-trust-footer,
+#fox-products-helper,
+#fox-compare-bar,
+#cart-drawer > div,
+[role="dialog"] > div,
+main > .rounded-3xl,
+main > section.rounded-3xl,
+main > div.rounded-3xl{
+  background:var(--fox-glass-bg) !important;
+  border:1px solid var(--fox-glass-line) !important;
+  box-shadow:var(--fox-glass-shadow),inset 0 1px 0 rgba(255,255,255,.92) !important;
+  -webkit-backdrop-filter:blur(var(--fox-glass-blur)) saturate(135%);
+  backdrop-filter:blur(var(--fox-glass-blur)) saturate(135%);
+}
+
+.glass-nav,
+header.sticky{
+  background:rgba(255,255,255,.74) !important;
+  box-shadow:0 14px 36px rgba(38,24,14,.08),inset 0 1px 0 rgba(255,255,255,.96) !important;
+}
+
+/* Soft 3D lift. Hover transforms are only enabled where a real pointer exists. */
+.product-card-item,
+.fox-review-card,
+.fox-review-form,
+#home-featured-grid > div,
+#home-bestseller-grid > div,
+#catalog-products-grid > div,
+#home-categories-container > a,
+#category-pills-container > *,
+main > .rounded-3xl,
+main > section.rounded-3xl,
+main > div.rounded-3xl{
+  transform-style:preserve-3d;
+  perspective:1200px;
+  backface-visibility:hidden;
+  contain:layout paint style;
+}
+
+@media (hover:hover) and (pointer:fine){
+  .product-card-item:hover,
+  #home-featured-grid > div:hover,
+  #home-bestseller-grid > div:hover,
+  #catalog-products-grid > div:hover{
+    transform:translate3d(0,-6px,0) rotateX(1deg) rotateY(-.55deg) !important;
+    box-shadow:var(--fox-3d-shadow),inset 0 1px 0 rgba(255,255,255,.95) !important;
+  }
+  .fox-review-card:hover,
+  #home-categories-container > a:hover,
+  #category-pills-container > *:hover{
+    transform:translate3d(0,-4px,0) rotateX(1deg) rotateY(-.35deg);
+    box-shadow:var(--fox-3d-shadow),inset 0 1px 0 rgba(255,255,255,.95) !important;
+  }
+  button:not([disabled]),
+  a[href],
+  select{
+    transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+  }
+  button:not([disabled]):hover,
+  a[href]:not(.product-img-box):not(.fox-search-result):hover,
+  select:hover{
+    filter:saturate(1.05);
+  }
+}
+
+/* Glass controls without expensive continuous effects. */
+input:not([type="hidden"]),
+textarea,
+select,
+#global-search-input,
+#catalog-search-input,
+#catalog-sort-select{
+  background:rgba(255,255,255,.64) !important;
+  border-color:rgba(112,96,128,.16) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.92),0 8px 22px rgba(38,24,14,.05) !important;
+  -webkit-backdrop-filter:blur(10px);
+  backdrop-filter:blur(10px);
+}
+input:not([type="hidden"]):focus,
+textarea:focus,
+select:focus,
+#global-search-input:focus,
+#catalog-search-input:focus,
+#catalog-sort-select:focus{
+  border-color:rgba(255,122,24,.42) !important;
+  box-shadow:0 0 0 4px rgba(255,122,24,.10),inset 0 1px 0 rgba(255,255,255,.96),0 12px 30px rgba(255,122,24,.08) !important;
+}
+
+/* Buttons get a dimensional face and a tiny press effect. */
+button:not([disabled]),
+.fox-review-submit,
+a.bg-orange-600,
+a.bg-slate-900,
+a[class*="bg-gradient-to-r"]{
+  box-shadow:0 10px 22px rgba(38,24,14,.10),inset 0 1px 0 rgba(255,255,255,.24) !important;
+  transform:translateZ(0);
+}
+button:not([disabled]):active,
+a.bg-orange-600:active,
+a.bg-slate-900:active,
+a[class*="bg-gradient-to-r"]:active{
+  transform:translateY(1px) scale(.985);
+}
+
+/* Product media gets depth without JS tilt. */
+.product-card-item .product-img-box,
+#home-featured-grid .product-img-box,
+#home-bestseller-grid .product-img-box,
+#catalog-products-grid .product-img-box{
+  position:relative;
+  isolation:isolate;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.90),inset 0 -20px 40px rgba(255,122,24,.035);
+}
+.product-card-item .product-img-box::after,
+#home-featured-grid .product-img-box::after,
+#home-bestseller-grid .product-img-box::after,
+#catalog-products-grid .product-img-box::after{
+  content:"";
+  position:absolute;
+  inset:14% 12% 10%;
+  border-radius:32px;
+  background:radial-gradient(circle at 50% 86%,rgba(43,31,19,.14),transparent 48%);
+  filter:blur(12px);
+  opacity:.7;
+  z-index:-1;
+  pointer-events:none;
+}
+.product-card-item .product-img-box img,
+#home-featured-grid .product-img-box img,
+#home-bestseller-grid .product-img-box img,
+#catalog-products-grid .product-img-box img{
+  transform:translateZ(12px);
+  filter:drop-shadow(0 14px 18px rgba(37,25,14,.12));
+}
+
+/* Premium content depth across the secondary pages. */
+main > section,
+main > .grid > *,
+main > div > .grid > *,
+.fox-review-section > *{
+  position:relative;
+}
+.fox-review-section,
+.fox-review-form,
+.fox-approved-reviews{
+  overflow:hidden;
+}
+.fox-review-section::before,
+.fox-review-form::before,
+.fox-approved-reviews::before{
+  content:"";
+  position:absolute;
+  width:220px;
+  height:220px;
+  border-radius:50%;
+  top:-100px;
+  left:-70px;
+  background:radial-gradient(circle,rgba(255,154,75,.13),transparent 68%);
+  pointer-events:none;
+}
+
+/* Keep motion and blur deliberately lighter on phones. */
+@media (max-width: 700px){
+  :root{--fox-glass-blur:10px;}
+  .glass-nav,
+  header.sticky,
+  .product-card-item,
+  .fox-review-section,
+  .fox-review-card,
+  .fox-review-form,
+  .fox-approved-reviews,
+  .fox-search-dialog,
+  .fox-trust-footer,
+  #fox-products-helper,
+  #cart-drawer > div,
+  [role="dialog"] > div,
+  main > .rounded-3xl,
+  main > section.rounded-3xl,
+  main > div.rounded-3xl{
+    box-shadow:0 12px 30px rgba(38,24,14,.075),inset 0 1px 0 rgba(255,255,255,.92) !important;
+  }
+  .product-card-item .product-img-box img,
+  #home-featured-grid .product-img-box img,
+  #home-bestseller-grid .product-img-box img,
+  #catalog-products-grid .product-img-box img{
+    transform:none;
+    filter:drop-shadow(0 10px 14px rgba(37,25,14,.10));
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    scroll-behavior:auto !important;
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+  }
 }
