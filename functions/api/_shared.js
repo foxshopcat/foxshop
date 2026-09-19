@@ -5,6 +5,7 @@ const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
 let extendedSchemaReady = false;
+let reviewSchemaReady = false;
 
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -252,30 +253,18 @@ export async function ensureExtendedSchema(db) {
  */
 export async function ensureReviewSchema(db) {
   if (!db) throw new Error('D1 binding is missing');
-
-  const execWithRetry = async (sql, attempts = 2) => {
-    let lastError = null;
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      try {
-        await db.prepare(sql).run();
-        return;
-      } catch (error) {
-        lastError = error;
-        const message = String(error?.message || error || '');
-        if (/already exists|duplicate column name/i.test(message)) return;
-        if (!/database is locked|database table is locked|SQLITE_BUSY/i.test(message) || attempt + 1 >= attempts) throw error;
-        await new Promise(resolve => setTimeout(resolve, 80));
-      }
+  if (reviewSchemaReady) return;
+  const exec = async (sql) => {
+    try {
+      await db.prepare(sql).run();
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      if (/already exists|duplicate column name/i.test(message)) return;
+      throw error;
     }
-    if (lastError) throw lastError;
   };
 
-  const tableColumns = async (table) => {
-    const result = await db.prepare(`PRAGMA table_info(${table})`).all();
-    return new Set((result?.results || []).map(row => String(row?.name || '').trim()).filter(Boolean));
-  };
-
-  await execWithRetry(`CREATE TABLE IF NOT EXISTS product_reviews (
+  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
     id TEXT PRIMARY KEY,
     product_id TEXT NOT NULL DEFAULT '',
     customer_name TEXT NOT NULL DEFAULT '',
@@ -285,8 +274,6 @@ export async function ensureReviewSchema(db) {
     approved INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT ''
   )`);
-
-  const reviewColumns = await tableColumns('product_reviews');
   for (const [name, type] of [
     ['product_id', "TEXT NOT NULL DEFAULT ''"],
     ['customer_name', "TEXT NOT NULL DEFAULT ''"],
@@ -295,27 +282,22 @@ export async function ensureReviewSchema(db) {
     ['photo_url', "TEXT NOT NULL DEFAULT ''"],
     ['approved', 'INTEGER NOT NULL DEFAULT 0'],
     ['created_at', "TEXT NOT NULL DEFAULT ''"]
-  ]) {
-    if (!reviewColumns.has(name)) await execWithRetry(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
-  }
-  await execWithRetry('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
+  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
 
-  await execWithRetry(`CREATE TABLE IF NOT EXISTS review_submission_log (
+  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
     id TEXT PRIMARY KEY,
     fingerprint TEXT NOT NULL DEFAULT '',
     product_id TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL DEFAULT 0
   )`);
-
-  const logColumns = await tableColumns('review_submission_log');
   for (const [name, type] of [
     ['fingerprint', "TEXT NOT NULL DEFAULT ''"],
     ['product_id', "TEXT NOT NULL DEFAULT ''"],
     ['created_at', 'INTEGER NOT NULL DEFAULT 0']
-  ]) {
-    if (!logColumns.has(name)) await execWithRetry(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
-  }
-  await execWithRetry('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
+  ]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
+  reviewSchemaReady = true;
 }
 
 export async function getStore(db) {

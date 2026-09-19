@@ -21,67 +21,44 @@ export async function onRequestPost(context) {
   if (!productId || !customerName || reviewText.length < 5) return bad('نام، امتیاز و متن نظر الزامی است.');
   if (customerName.length < 2) return bad('نام نمایشی کوتاه است.');
 
-  if (!context.env?.DB) return bad('اتصال فروشگاه به Cloudflare D1 برقرار نیست.', 500);
-  await ensureReviewSchema(context.env.DB);
-  const product = await context.env.DB.prepare('SELECT id FROM products WHERE id=? LIMIT 1').bind(productId).first();
-  if (!product) return bad('محصول پیدا نشد.', 404);
+  const db = context.env?.DB;
+  if (!db) return bad('اتصال فروشگاه به Cloudflare D1 برقرار نیست.', 503);
 
-  const rawIp = context.request.headers.get('CF-Connecting-IP') || context.request.headers.get('X-Forwarded-For') || 'unknown';
-  const userAgent = context.request.headers.get('User-Agent') || '';
-  const fingerprint = await sha256Hex(`${rawIp}|${userAgent.slice(0,240)}`);
-  const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
-
-  // The anti-spam log is deliberately best-effort: an old D1 schema must never block
-  // the actual review insert. The review itself is written first as the source of truth.
   try {
-    const recentForProduct = await context.env.DB.prepare('SELECT COUNT(*) AS count FROM review_submission_log WHERE fingerprint=? AND product_id=? AND created_at>?').bind(fingerprint, productId, dayAgo).first();
-    if (Number(recentForProduct?.count) > 0) return bad('برای این محصول در ۲۴ ساعت اخیر یک نظر از این دستگاه ثبت شده است.', 429);
-    const recentTotal = await context.env.DB.prepare('SELECT COUNT(*) AS count FROM review_submission_log WHERE fingerprint=? AND created_at>?').bind(fingerprint, dayAgo).first();
-    if (Number(recentTotal?.count) >= 6) return bad('تعداد ارسال نظر در ۲۴ ساعت اخیر زیاد است. بعداً دوباره امتحان کنید.', 429);
-  } catch (rateError) {
-    console.warn('FoxShop review anti-spam log unavailable:', rateError);
-  }
+    await ensureReviewSchema(db);
+    const product = await db.prepare('SELECT id FROM products WHERE id=? LIMIT 1').bind(productId).first();
+    if (!product) return bad('محصول پیدا نشد.', 404);
 
-  const now = new Date().toISOString();
-  const id = `review_${crypto.randomUUID()}`;
-  try {
-    await context.env.DB.prepare('INSERT INTO product_reviews(id,product_id,customer_name,rating,review_text,photo_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?)')
-      .bind(id, productId, customerName, rating, reviewText, '', 0, now).run();
-  } catch (insertError) {
-    // Tolerate legacy review tables whose field names differ from the current schema.
-    // The current schema remains the primary path; this is only a backwards-compatible rescue path.
-    const info = await context.env.DB.prepare('PRAGMA table_info(product_reviews)').all();
-    const columns = new Set((info?.results || []).map(row => String(row?.name || '').trim()).filter(Boolean));
-    const aliases = {
-      id: ['id', 'review_id', 'reviewId'],
-      product_id: ['product_id', 'productId', 'productid'],
-      customer_name: ['customer_name', 'customerName', 'customername', 'name'],
-      rating: ['rating', 'stars', 'score'],
-      review_text: ['review_text', 'reviewText', 'text', 'comment'],
-      photo_url: ['photo_url', 'photoUrl'],
-      approved: ['approved', 'is_approved', 'isApproved'],
-      created_at: ['created_at', 'createdAt']
-    };
-    const values = { id, product_id: productId, customer_name: customerName, rating, review_text: reviewText, photo_url: '', approved: 0, created_at: now };
-    const actual = [];
-    for (const key of Object.keys(aliases)) {
-      const column = aliases[key].find(name => columns.has(name));
-      if (column) actual.push([column, values[key]]);
+    const rawIp = context.request.headers.get('CF-Connecting-IP') || context.request.headers.get('X-Forwarded-For') || 'unknown';
+    const userAgent = context.request.headers.get('User-Agent') || '';
+    const fingerprint = await sha256Hex(`${rawIp}|${userAgent.slice(0,240)}`);
+    const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+
+    // Anti-spam remains best-effort; it can never prevent the real review write.
+    try {
+      const recentForProduct = await db.prepare('SELECT COUNT(*) AS count FROM review_submission_log WHERE fingerprint=? AND product_id=? AND created_at>?').bind(fingerprint, productId, dayAgo).first();
+      if (Number(recentForProduct?.count) > 0) return bad('برای این محصول در ۲۴ ساعت اخیر یک نظر از این دستگاه ثبت شده است.', 429);
+      const recentTotal = await db.prepare('SELECT COUNT(*) AS count FROM review_submission_log WHERE fingerprint=? AND created_at>?').bind(fingerprint, dayAgo).first();
+      if (Number(recentTotal?.count) >= 6) return bad('تعداد ارسال نظر در ۲۴ ساعت اخیر زیاد است. بعداً دوباره امتحان کنید.', 429);
+    } catch (rateError) {
+      console.warn('FoxShop review anti-spam log unavailable:', rateError);
     }
-    const canonicalKeys = ['id', 'product_id', 'customer_name', 'rating', 'review_text', 'approved', 'created_at'];
-    if (actual.length < canonicalKeys.length) throw insertError;
-    const names = actual.map(([name]) => name);
-    const placeholders = names.map(() => '?').join(',');
-    await context.env.DB.prepare(`INSERT INTO product_reviews(${names.join(',')}) VALUES(${placeholders})`)
-      .bind(...actual.map(([, value]) => value)).run();
-  }
 
-  try {
-    await context.env.DB.prepare('INSERT INTO review_submission_log(id,fingerprint,product_id,created_at) VALUES(?,?,?,?)')
-      .bind(`reviewlog_${crypto.randomUUID()}`, fingerprint, productId, Date.now()).run();
-  } catch (logError) {
-    console.warn('FoxShop review log write skipped:', logError);
-  }
+    const now = new Date().toISOString();
+    const id = `review_${crypto.randomUUID()}`;
+    await db.prepare('INSERT INTO product_reviews(id,product_id,customer_name,rating,review_text,photo_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?)')
+      .bind(id, productId, customerName, rating, reviewText, '', 0, now).run();
 
-  return json({ ok: true, pending: true, message: 'نظر شما ثبت شد و پس از بررسی فروشگاه منتشر می‌شود.' }, 202);
+    try {
+      await db.prepare('INSERT INTO review_submission_log(id,fingerprint,product_id,created_at) VALUES(?,?,?,?)')
+        .bind(`reviewlog_${crypto.randomUUID()}`, fingerprint, productId, Date.now()).run();
+    } catch (logError) {
+      console.warn('FoxShop review log write skipped:', logError);
+    }
+
+    return json({ ok: true, pending: true, message: 'نظر شما ثبت شد و پس از بررسی فروشگاه منتشر می‌شود.' }, 202);
+  } catch (error) {
+    console.error('FoxShop public review error:', error);
+    return bad('ثبت نظر در دیتابیس انجام نشد. اتصال D1 و جدول product_reviews را بررسی کنید.', 500);
+  }
 }
