@@ -5,7 +5,6 @@ const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
 let extendedSchemaReady = false;
-let reviewSchemaReady = false;
 
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -253,7 +252,6 @@ export async function ensureExtendedSchema(db) {
  */
 export async function ensureReviewSchema(db) {
   if (!db) throw new Error('D1 binding is missing');
-  if (reviewSchemaReady) return;
   const exec = async (sql) => {
     try {
       await db.prepare(sql).run();
@@ -297,7 +295,6 @@ export async function ensureReviewSchema(db) {
     ['created_at', 'INTEGER NOT NULL DEFAULT 0']
   ]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
   await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
-  reviewSchemaReady = true;
 }
 
 export async function getStore(db) {
