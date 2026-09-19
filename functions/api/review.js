@@ -44,8 +44,37 @@ export async function onRequestPost(context) {
 
   const now = new Date().toISOString();
   const id = `review_${crypto.randomUUID()}`;
-  await context.env.DB.prepare('INSERT INTO product_reviews(id,product_id,customer_name,rating,review_text,photo_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?)')
-    .bind(id, productId, customerName, rating, reviewText, '', 0, now).run();
+  try {
+    await context.env.DB.prepare('INSERT INTO product_reviews(id,product_id,customer_name,rating,review_text,photo_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?)')
+      .bind(id, productId, customerName, rating, reviewText, '', 0, now).run();
+  } catch (insertError) {
+    // Tolerate legacy review tables whose field names differ from the current schema.
+    // The current schema remains the primary path; this is only a backwards-compatible rescue path.
+    const info = await context.env.DB.prepare('PRAGMA table_info(product_reviews)').all();
+    const columns = new Set((info?.results || []).map(row => String(row?.name || '').trim()).filter(Boolean));
+    const aliases = {
+      id: ['id', 'review_id', 'reviewId'],
+      product_id: ['product_id', 'productId', 'productid'],
+      customer_name: ['customer_name', 'customerName', 'customername', 'name'],
+      rating: ['rating', 'stars', 'score'],
+      review_text: ['review_text', 'reviewText', 'text', 'comment'],
+      photo_url: ['photo_url', 'photoUrl'],
+      approved: ['approved', 'is_approved', 'isApproved'],
+      created_at: ['created_at', 'createdAt']
+    };
+    const values = { id, product_id: productId, customer_name: customerName, rating, review_text: reviewText, photo_url: '', approved: 0, created_at: now };
+    const actual = [];
+    for (const key of Object.keys(aliases)) {
+      const column = aliases[key].find(name => columns.has(name));
+      if (column) actual.push([column, values[key]]);
+    }
+    const canonicalKeys = ['id', 'product_id', 'customer_name', 'rating', 'review_text', 'approved', 'created_at'];
+    if (actual.length < canonicalKeys.length) throw insertError;
+    const names = actual.map(([name]) => name);
+    const placeholders = names.map(() => '?').join(',');
+    await context.env.DB.prepare(`INSERT INTO product_reviews(${names.join(',')}) VALUES(${placeholders})`)
+      .bind(...actual.map(([, value]) => value)).run();
+  }
 
   try {
     await context.env.DB.prepare('INSERT INTO review_submission_log(id,fingerprint,product_id,created_at) VALUES(?,?,?,?)')
