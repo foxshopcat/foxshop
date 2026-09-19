@@ -136,6 +136,7 @@ async function apiRequest(path, options = {}) {
     };
     if (controller && !fetchOptions.signal) fetchOptions.signal = controller.signal;
     const response = await fetch(`/api${path}`, fetchOptions);
+    if (/^\/admin\//.test(path) && !['GET','HEAD'].includes(String(fetchOptions.method || 'GET').toUpperCase())) invalidateFoxShopStoreCache();
     const text = await response.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { ok: false, error: text || "پاسخ نامعتبر از سرور" }; }
@@ -176,8 +177,31 @@ async function refreshRemoteStore() {
 // the same in-flight promise during normal page initialization. This removes
 // unnecessary waiting for DOMContentLoaded without changing the data source.
 let foxShopEarlyStorePromise = null;
-function getRemoteStoreOnce() {
-  if (!foxShopEarlyStorePromise) foxShopEarlyStorePromise = refreshRemoteStore();
+const FOXSHOP_STORE_CACHE_KEY = 'foxshop_public_store_cache_v18';
+const FOXSHOP_STORE_CACHE_TTL = 15000;
+function readFoxShopStoreCache() {
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(FOXSHOP_STORE_CACHE_KEY) || 'null');
+    if (!cached || !cached.data || (Date.now() - Number(cached.at || 0)) > FOXSHOP_STORE_CACHE_TTL) return null;
+    return cached.data;
+  } catch (_) { return null; }
+}
+function writeFoxShopStoreCache(data) {
+  try { sessionStorage.setItem(FOXSHOP_STORE_CACHE_KEY, JSON.stringify({ at: Date.now(), data })); } catch (_) {}
+}
+function invalidateFoxShopStoreCache() {
+  try { sessionStorage.removeItem(FOXSHOP_STORE_CACHE_KEY); } catch (_) {}
+}
+async function getRemoteStoreOnce() {
+  if (foxShopEarlyStorePromise) return foxShopEarlyStorePromise;
+  const cached = readFoxShopStoreCache();
+  if (cached) {
+    applyRemoteStore(cached);
+    // Revalidate quietly so product/admin data stays fresh without blocking the first paint.
+    foxShopEarlyStorePromise = refreshRemoteStore().then(data => { writeFoxShopStoreCache(data); return data; }).catch(() => cached);
+    return cached;
+  }
+  foxShopEarlyStorePromise = refreshRemoteStore().then(data => { writeFoxShopStoreCache(data); return data; });
   return foxShopEarlyStorePromise;
 }
 
@@ -2359,33 +2383,28 @@ if (typeof window !== "undefined") {
         'footer'
       ];
       const elements = document.querySelectorAll(revealSelectors.join(','));
-      const isTouchOrMobile = window.matchMedia && window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+      elements.forEach((el, i) => {
+        if (el.classList.contains('fixed')) return;
+        el.classList.add('fox-v18-reveal');
+        el.style.transitionDelay = `${Math.min(i * 22, 220)}ms`;
+      });
 
-      if (!isTouchOrMobile) {
-        elements.forEach((el, i) => {
-          if (el.classList.contains('fixed')) return;
-          el.classList.add('fox-reveal');
-          el.style.animationDelay = `${Math.min(i * 35, 420)}ms`;
-        });
-
-        if ('IntersectionObserver' in window) {
-          const observer = new IntersectionObserver((entries, obs) => {
-            entries.forEach(entry => {
-              if (!entry.isIntersecting) return;
-              entry.target.classList.add('is-visible');
-              obs.unobserve(entry.target);
-            });
-          }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
-          elements.forEach(el => observer.observe(el));
-        } else {
-          elements.forEach(el => el.classList.add('is-visible'));
-        }
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries, obs) => {
+          entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-visible');
+            obs.unobserve(entry.target);
+          });
+        }, { threshold: 0.06, rootMargin: '80px 0px -20px 0px' });
+        elements.forEach(el => observer.observe(el));
       } else {
         elements.forEach(el => el.classList.add('is-visible'));
       }
 
       const header = document.querySelector('header.sticky');
-      if (header) {
+      if (header && !header.dataset.foxV18ScrollBound) {
+        header.dataset.foxV18ScrollBound = '1';
         let headerTick = false;
         const syncHeader = () => {
           if (headerTick) return;

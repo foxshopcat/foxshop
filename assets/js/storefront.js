@@ -440,7 +440,6 @@
     if(searchInput && !searchInput.dataset.foxEnhancedSearch){
       searchInput.dataset.foxEnhancedSearch='1';
       if (new URLSearchParams(window.location.search).get('search')) searchInput.dataset.foxUrlSeeded='1';
-      let searchRenderTimer = null;
       searchInput.addEventListener('input',()=>{
         // Persist the live value in the URL so an old search can never reappear after clearing.
         try {
@@ -450,10 +449,7 @@
           else url.searchParams.delete('search');
           window.history.replaceState(null, '', url.pathname + (url.search ? url.search : '') + (url.hash || ''));
         } catch (_) {}
-        if (searchRenderTimer) clearTimeout(searchRenderTimer);
-        searchRenderTimer = setTimeout(()=>{
-          if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog();
-        }, 90);
+        if(typeof window.renderProductsCatalog==='function') window.renderProductsCatalog();
       });
       searchInput.addEventListener('keydown',e=>{
         if(e.key==='Enter'){
@@ -732,7 +728,12 @@
       modal.querySelector('.fox-search-form').addEventListener('submit',e=>{e.preventDefault();submitGlobalSearch(modal.querySelector('#fox-search-modal-input').value);});
       modal.querySelectorAll('[data-search-hint]').forEach(b=>b.addEventListener('click',()=>{modal.querySelector('#fox-search-modal-input').value=b.dataset.searchHint; submitGlobalSearch(b.dataset.searchHint);}));
       const liveInput=modal.querySelector('#fox-search-modal-input');
-      liveInput?.addEventListener('input',()=>renderGlobalSearchSuggestions(liveInput.value));
+      let searchTimer = null;
+      liveInput?.addEventListener('input',()=>{
+        clearTimeout(searchTimer);
+        const value = liveInput.value;
+        searchTimer = setTimeout(() => renderGlobalSearchSuggestions(value), 90);
+      }, { passive: true });
       document.addEventListener('keydown',e=>{if(e.key==='Escape') closeGlobalSearch();});
     }
     modal.classList.remove('hidden');
@@ -786,28 +787,33 @@
     }));
     form.addEventListener('submit',async e=>{
       e.preventDefault();
+      if (form.dataset.submitting === '1') return;
+      form.dataset.submitting='1';
       const btn=form.querySelector('button[type="submit"]'); const status=form.querySelector('[data-review-status]');
       if(btn) btn.disabled=true; if(status){status.textContent='در حال ثبت نظر…';status.className='fox-review-status is-loading';}
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
       try{
         const payload=Object.fromEntries(new FormData(form));
-        payload.productId=String(payload.productId||''); payload.customerName=String(payload.customerName||'').trim(); payload.reviewText=String(payload.reviewText||'').trim(); payload.rating=Number(payload.rating)||5; payload.website=String(payload.website||'');
-        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timeoutId = controller ? setTimeout(()=>controller.abort(), 12000) : null;
-        let res;
-        try {
-          res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload),signal:controller?.signal});
-        } finally {
-          if(timeoutId) clearTimeout(timeoutId);
+        payload.productId=String(payload.productId||''); payload.customerName=String(payload.customerName||'').trim(); payload.reviewText=String(payload.reviewText||'').trim(); payload.rating=Math.min(5,Math.max(1,Number(payload.rating)||5)); payload.website=String(payload.website||'');
+        const res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload),signal:controller?.signal});
+        const raw=await res.text();
+        let data={};
+        try{ data=raw ? JSON.parse(raw) : {}; }catch(_){ data={}; }
+        if(!res.ok || data.ok===false) {
+          const message = data.error || (res.status >= 500 ? 'سرور در ثبت نظر مشکل داشت؛ لطفاً چند ثانیه بعد دوباره امتحان کنید.' : `خطا در ثبت نظر (کد ${res.status})`);
+          throw new Error(message);
         }
-        const data=await res.json().catch(()=>({}));
-        if(!res.ok || data.ok===false) throw new Error(data.error||`خطا در ثبت نظر (کد ${res.status})`);
         form.reset(); ratingInput.value='5'; stars.forEach(st=>st.classList.toggle('is-active',Number(st.dataset.reviewStar)<=5));
-        if(status){status.textContent=data.message||'نظر شما ثبت شد و پس از بررسی فروشگاه در صفحه محصول نمایش داده می‌شود.';status.className='fox-review-status is-success';}
+        if(status){status.textContent=data.message||'نظر شما ثبت شد و پس از بررسی فروشگاه نمایش داده می‌شود.';status.className='fox-review-status is-success';}
       }catch(err){
-        const message = err?.name === 'AbortError' ? 'ارتباط با سرور بیش از حد طول کشید؛ دوباره تلاش کنید.' : (err?.message || 'ثبت نظر ناموفق بود؛ دوباره تلاش کنید.');
+        const message = err?.name === 'AbortError' ? 'پاسخ سرور طول کشید؛ اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.' : (err?.message || 'ثبت نظر ناموفق بود؛ دوباره تلاش کنید.');
         if(status){status.textContent=message;status.className='fox-review-status is-error';}
+      }finally{
+        if(timeoutId) clearTimeout(timeoutId);
+        if(btn) btn.disabled=false;
+        form.dataset.submitting='0';
       }
-      finally{if(btn) btn.disabled=false;}
     });
   }
 
