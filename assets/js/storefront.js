@@ -728,12 +728,7 @@
       modal.querySelector('.fox-search-form').addEventListener('submit',e=>{e.preventDefault();submitGlobalSearch(modal.querySelector('#fox-search-modal-input').value);});
       modal.querySelectorAll('[data-search-hint]').forEach(b=>b.addEventListener('click',()=>{modal.querySelector('#fox-search-modal-input').value=b.dataset.searchHint; submitGlobalSearch(b.dataset.searchHint);}));
       const liveInput=modal.querySelector('#fox-search-modal-input');
-      let searchTimer = null;
-      liveInput?.addEventListener('input',()=>{
-        clearTimeout(searchTimer);
-        const value = liveInput.value;
-        searchTimer = setTimeout(() => renderGlobalSearchSuggestions(value), 90);
-      }, { passive: true });
+      liveInput?.addEventListener('input',()=>renderGlobalSearchSuggestions(liveInput.value));
       document.addEventListener('keydown',e=>{if(e.key==='Escape') closeGlobalSearch();});
     }
     modal.classList.remove('hidden');
@@ -787,33 +782,18 @@
     }));
     form.addEventListener('submit',async e=>{
       e.preventDefault();
-      if (form.dataset.submitting === '1') return;
-      form.dataset.submitting='1';
       const btn=form.querySelector('button[type="submit"]'); const status=form.querySelector('[data-review-status]');
       if(btn) btn.disabled=true; if(status){status.textContent='در حال ثبت نظر…';status.className='fox-review-status is-loading';}
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
       try{
         const payload=Object.fromEntries(new FormData(form));
-        payload.productId=String(payload.productId||''); payload.customerName=String(payload.customerName||'').trim(); payload.reviewText=String(payload.reviewText||'').trim(); payload.rating=Math.min(5,Math.max(1,Number(payload.rating)||5)); payload.website=String(payload.website||'');
-        const res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},credentials:'same-origin',body:JSON.stringify(payload),signal:controller?.signal});
-        const raw=await res.text();
-        let data={};
-        try{ data=raw ? JSON.parse(raw) : {}; }catch(_){ data={}; }
-        if(!res.ok || data.ok===false) {
-          const message = data.error || (res.status >= 500 ? 'سرور در ثبت نظر مشکل داشت؛ لطفاً چند ثانیه بعد دوباره امتحان کنید.' : `خطا در ثبت نظر (کد ${res.status})`);
-          throw new Error(message);
-        }
+        payload.productId=String(payload.productId||''); payload.customerName=String(payload.customerName||'').trim(); payload.reviewText=String(payload.reviewText||'').trim(); payload.rating=Number(payload.rating)||5; payload.website=String(payload.website||'');
+        const res=await fetch('/api/review',{method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',body:JSON.stringify(payload)});
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok || data.ok===false) throw new Error(data.error||`خطا در ثبت نظر (کد ${res.status})`);
         form.reset(); ratingInput.value='5'; stars.forEach(st=>st.classList.toggle('is-active',Number(st.dataset.reviewStar)<=5));
-        if(status){status.textContent=data.message||'نظر شما ثبت شد و پس از بررسی فروشگاه نمایش داده می‌شود.';status.className='fox-review-status is-success';}
-      }catch(err){
-        const message = err?.name === 'AbortError' ? 'پاسخ سرور طول کشید؛ اتصال اینترنت را بررسی کنید و دوباره تلاش کنید.' : (err?.message || 'ثبت نظر ناموفق بود؛ دوباره تلاش کنید.');
-        if(status){status.textContent=message;status.className='fox-review-status is-error';}
-      }finally{
-        if(timeoutId) clearTimeout(timeoutId);
-        if(btn) btn.disabled=false;
-        form.dataset.submitting='0';
-      }
+        if(status){status.textContent=data.message||'نظر شما ثبت شد و پس از بررسی فروشگاه در صفحه محصول نمایش داده می‌شود.';status.className='fox-review-status is-success';}
+      }catch(err){ if(status){status.textContent=err.message||'ثبت نظر ناموفق بود؛ دوباره تلاش کنید.';status.className='fox-review-status is-error';} }
+      finally{if(btn) btn.disabled=false;}
     });
   }
 
