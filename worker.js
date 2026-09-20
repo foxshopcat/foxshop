@@ -38,6 +38,8 @@ async function healthHandler(context) {
     ok: true,
     build: 'foxshop-media-edit-v7',
     d1: !!context.env.DB,
+    emailProviderConfigured: Boolean(String(context.env.RESEND_API_KEY || '').trim() && String(context.env.AUTH_EMAIL_FROM || '').trim()),
+    authPepperConfigured: String(context.env.AUTH_PEPPER || '').trim().length >= 24,
     webCrypto: !!globalThis.crypto?.subtle,
     pbkdf2: typeof crypto?.subtle?.deriveBits === 'function',
     pbkdf2Iterations: 100000
@@ -169,7 +171,14 @@ export default {
         return addSecurityHeaders(await route[0](contextFor(request, env, executionCtx, route[1])));
       } catch (error) {
         console.error('FoxShop API error:', error);
-        return addSecurityHeaders(bad('خطای داخلی سرور. تنظیمات Cloudflare D1 را بررسی کنید.', 500));
+        const message = String(error?.message || '');
+        if (/D1 binding is missing|binding.*DB/i.test(message)) {
+          return addSecurityHeaders(bad('اتصال Worker به Cloudflare D1 برقرار نیست. Binding با نام DB را بررسی کنید.', 500));
+        }
+        if (/EMAIL_PROVIDER_NOT_CONFIGURED/i.test(message)) {
+          return addSecurityHeaders(bad('ارسال ایمیل هنوز در تنظیمات Worker فعال نشده است.', 503));
+        }
+        return addSecurityHeaders(bad('خطای داخلی سرور. لطفاً دوباره تلاش کنید.', 500));
       }
     }
 
