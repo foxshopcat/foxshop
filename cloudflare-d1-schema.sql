@@ -186,3 +186,82 @@ CREATE TABLE IF NOT EXISTS customer_stories (
   approved INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
+
+-- Customer accounts, OTP authentication, server-side favorites/cart and order-request history.
+-- Authentication secrets (AUTH_PEPPER, RESEND_API_KEY, AUTH_EMAIL_FROM) are configured as Worker secrets.
+-- phone columns below are legacy compatibility columns and are not used by customer auth.
+CREATE TABLE IF NOT EXISTS customers (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE,
+  phone TEXT UNIQUE,
+  display_name TEXT NOT NULL DEFAULT '',
+  password_hash TEXT,
+  password_salt TEXT,
+  email_verified INTEGER NOT NULL DEFAULT 0,
+  phone_verified INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email ON customers(email) WHERE email IS NOT NULL AND email <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone) WHERE phone IS NOT NULL AND phone <> '';
+
+CREATE TABLE IF NOT EXISTS customer_sessions (
+  token_hash TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT '',
+  last_seen_at INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_customer_sessions_customer ON customer_sessions(customer_id);
+CREATE INDEX IF NOT EXISTS idx_customer_sessions_expiry ON customer_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS customer_otps (
+  id TEXT PRIMARY KEY,
+  customer_id TEXT,
+  identifier_hash TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  code_salt TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  consumed INTEGER NOT NULL DEFAULT 0,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  ip_hash TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_customer_otps_identifier ON customer_otps(identifier_hash, channel, created_at);
+CREATE INDEX IF NOT EXISTS idx_customer_otps_ip ON customer_otps(ip_hash, created_at);
+
+CREATE TABLE IF NOT EXISTS customer_auth_attempts (
+  key_hash TEXT PRIMARY KEY,
+  fail_count INTEGER NOT NULL DEFAULT 0,
+  locked_until INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS customer_wishlist (
+  customer_id TEXT NOT NULL,
+  product_id TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(customer_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS idx_customer_wishlist_customer ON customer_wishlist(customer_id);
+
+CREATE TABLE IF NOT EXISTS customer_cart (
+  customer_id TEXT NOT NULL,
+  product_id TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY(customer_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS idx_customer_cart_customer ON customer_cart(customer_id);
+
+CREATE TABLE IF NOT EXISTS customer_order_requests (
+  id TEXT PRIMARY KEY,
+  customer_id TEXT NOT NULL,
+  channel TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending_contact',
+  total_amount REAL NOT NULL DEFAULT 0,
+  items_json TEXT NOT NULL DEFAULT '[]',
+  created_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_customer_orders_customer ON customer_order_requests(customer_id, created_at);

@@ -17,6 +17,16 @@ import { onRequestDelete as adminReviewDelete, onRequestPut as adminReviewModera
 import { onRequestPost as adminStoryCreate } from './functions/api/admin/story.js';
 import { onRequestPost as publicReviewCreate } from './functions/api/review.js';
 import { onRequestDelete as adminStoryDelete } from './functions/api/admin/story/[id].js';
+import { onRequestPost as authRequestCode } from './functions/api/auth/request-code.js';
+import { onRequestPost as authVerifyCode } from './functions/api/auth/verify-code.js';
+import { onRequestPost as authPasswordLogin } from './functions/api/auth/password-login.js';
+import { onRequestGet as authMe } from './functions/api/auth/me.js';
+import { onRequestPut as authPassword } from './functions/api/auth/password.js';
+import { onRequestPost as authLogout } from './functions/api/auth/logout.js';
+import { onRequestGet as accountGet, onRequestPut as accountProfileUpdate } from './functions/api/account/index.js';
+import { onRequestPut as accountFavorite } from './functions/api/account/favorites.js';
+import { onRequestPut as accountCart } from './functions/api/account/cart.js';
+import { onRequestPost as accountOrderRequest } from './functions/api/account/orders.js';
 import { bad } from './functions/api/_shared.js';
 
 function contextFor(request, env, executionCtx, params = {}) {
@@ -88,6 +98,17 @@ function matchApi(url, request) {
   if (p === '/api/health' && method === 'GET') return [healthHandler, {}];
   if (p === '/api/store' && method === 'GET') return [getStore, {}];
   if (p === '/api/review' && method === 'POST') return [publicReviewCreate, {}];
+  if (p === '/api/auth/request-code' && method === 'POST') return [authRequestCode, {}];
+  if (p === '/api/auth/verify-code' && method === 'POST') return [authVerifyCode, {}];
+  if (p === '/api/auth/login-password' && method === 'POST') return [authPasswordLogin, {}];
+  if (p === '/api/auth/me' && method === 'GET') return [authMe, {}];
+  if (p === '/api/auth/password' && method === 'PUT') return [authPassword, {}];
+  if (p === '/api/auth/logout' && method === 'POST') return [authLogout, {}];
+  if (p === '/api/account' && method === 'GET') return [accountGet, {}];
+  if (p === '/api/account' && method === 'PUT') return [accountProfileUpdate, {}];
+  if (p === '/api/account/favorites' && method === 'PUT') return [accountFavorite, {}];
+  if (p === '/api/account/cart' && method === 'PUT') return [accountCart, {}];
+  if (p === '/api/account/orders' && method === 'POST') return [accountOrderRequest, {}];
   if (p === '/api/admin/login' && method === 'POST') return [adminLogin, {}];
   if (p === '/api/admin/logout' && method === 'POST') return [adminLogout, {}];
   if (p === '/api/admin/me' && method === 'GET') return [adminMe, {}];
@@ -131,6 +152,16 @@ export default {
         return new Response(null, { status: 204, headers: { 'access-control-allow-origin': url.origin, 'access-control-allow-credentials': 'true', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'GET,POST,PUT,DELETE,OPTIONS' } });
       }
 
+      if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+        const origin = request.headers.get('Origin');
+        if (origin) {
+          try { if (new URL(origin).origin !== url.origin) return addSecurityHeaders(bad('درخواست نامعتبر است.', 403)); }
+          catch (_) { return addSecurityHeaders(bad('درخواست نامعتبر است.', 403)); }
+        }
+        const fetchSite = String(request.headers.get('Sec-Fetch-Site') || '').toLowerCase();
+        if (fetchSite === 'cross-site') return addSecurityHeaders(bad('درخواست نامعتبر است.', 403));
+      }
+
       const route = matchApi(url, request);
       if (!route) return addSecurityHeaders(bad('API route not found.', 404));
 
@@ -166,7 +197,27 @@ export default {
       }
     }
 
+    if (request.method.toUpperCase() === 'GET' && url.pathname === '/robots.txt') {
+      const origin = url.origin;
+      return addSecurityHeaders(new Response(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nSitemap: ${origin}/sitemap.xml\n`, { status: 200, headers: { 'content-type':'text/plain; charset=utf-8', 'cache-control':'public, max-age=3600, s-maxage=86400' } }));
+    }
+
+    if (request.method.toUpperCase() === 'GET' && url.pathname === '/sitemap.xml' && env.DB) {
+      try {
+        const rows = await env.DB.prepare('SELECT id,updated_at AS updatedAt FROM products ORDER BY id').all();
+        const urls = [`${url.origin}/`, `${url.origin}/products.html`, `${url.origin}/about.html`, `${url.origin}/contact.html`, `${url.origin}/quiz.html`];
+        for (const row of rows?.results || []) urls.push(`${url.origin}/product/${encodeURIComponent(String(row.id))}`);
+        const body = `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.map(u=>`<url><loc>${escapeHtmlServer(u)}</loc></url>`).join('')}</urlset>`;
+        return addSecurityHeaders(new Response(body, { status:200, headers:{ 'content-type':'application/xml; charset=utf-8', 'cache-control':'public, max-age=600, s-maxage=3600' } }));
+      } catch (_) {}
+    }
+
     // Everything else is a static FoxShop file served by Cloudflare Workers Static Assets.
-    return addSecurityHeaders(await env.ASSETS.fetch(request));
+    const asset = await env.ASSETS.fetch(request);
+    const assetHeaders = new Headers(asset.headers);
+    if (/\.(?:webp|avif|png|jpe?g|gif|svg|ico|woff2?|ttf)$/i.test(url.pathname)) {
+      assetHeaders.set('cache-control', 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400');
+    }
+    return addSecurityHeaders(new Response(asset.body, { status: asset.status, statusText: asset.statusText, headers: assetHeaders }));
   }
 };
