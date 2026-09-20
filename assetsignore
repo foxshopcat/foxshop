@@ -11,6 +11,7 @@ pnpm-lock.yaml
 yarn.lock
 cloudflare-d1-schema.sql
 SETUP-FOR-CLOUDFLARE-WORKER.txt
+CUSTOMER-AUTH-SETUP.md
 README.md
 functions/**
 assets/**/.DS_Store
@@ -18,6 +19,3 @@ assets/**/.DS_Store
 .nojekyll
 _headers
 _routes.json
-
-bun.lock
-bun.lockb
