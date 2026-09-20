@@ -8,7 +8,12 @@ export async function onRequestPost(context) {
   const identifier = normalizeCustomerIdentifier(body?.identifier);
   if (!identifier) return bad('لطفاً یک ایمیل معتبر وارد کنید.');
 
-  await ensureCustomerSchema(context.env.DB);
+  try {
+    await ensureCustomerSchema(context.env.DB);
+  } catch (schemaError) {
+    console.error('FoxShop customer schema error:', schemaError);
+    return bad('ساختار حساب کاربری در Cloudflare D1 آماده نیست. اگر D1 وصل است، یک بار دیگر تلاش کنید.', 503);
+  }
   const pepper = await authPepper(context.env);
   const identifierHash = await authHash(`${identifier.type}:${identifier.value}`, pepper);
   const ip = cleanString(context.request.headers.get('CF-Connecting-IP') || '', 96) || 'unknown';
@@ -24,15 +29,30 @@ export async function onRequestPost(context) {
     return bad('تعداد درخواست کد زیاد است. ۱۵ دقیقه بعد دوباره تلاش کنید.', 429);
   }
 
-  let customer = await context.env.DB.prepare('SELECT id FROM customers WHERE email=? LIMIT 1').bind(identifier.value).first();
+  let customer;
+  try {
+    customer = await context.env.DB.prepare('SELECT id FROM customers WHERE email=? LIMIT 1').bind(identifier.value).first();
+  } catch (dbError) {
+    console.error('FoxShop customer lookup error:', dbError);
+    return bad('خواندن حساب کاربری از D1 انجام نشد.', 503);
+  }
   let createdCustomerId = '';
   if (!customer) {
     const id = `customer_${crypto.randomUUID()}`;
     const nowIso = new Date().toISOString();
-    await context.env.DB.prepare('INSERT INTO customers(id,email,display_name,created_at,updated_at) VALUES(?,?,?,?,?)')
-      .bind(id, identifier.value, identifier.value.split('@')[0].slice(0, 80), nowIso, nowIso).run();
-    customer = { id };
-    createdCustomerId = id;
+    try {
+      await context.env.DB.prepare('INSERT INTO customers(id,email,display_name,created_at,updated_at) VALUES(?,?,?,?,?)')
+        .bind(id, identifier.value, identifier.value.split('@')[0].slice(0, 80), nowIso, nowIso).run();
+      customer = { id };
+      createdCustomerId = id;
+    } catch (insertError) {
+      // A duplicate email can happen when two OTP requests arrive at the same
+      // time. Re-read the row instead of turning that race into a 500.
+      console.error('FoxShop customer create error:', insertError);
+      const existing = await context.env.DB.prepare('SELECT id FROM customers WHERE email=? LIMIT 1').bind(identifier.value).first().catch(() => null);
+      if (!existing) return bad('ساخت حساب کاربری در D1 انجام نشد. لطفاً دوباره تلاش کنید.', 503);
+      customer = existing;
+    }
   }
 
   await context.env.DB.prepare('UPDATE customer_otps SET consumed=1 WHERE identifier_hash=? AND consumed=0').bind(identifierHash).run();
