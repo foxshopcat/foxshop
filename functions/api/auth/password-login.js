@@ -2,6 +2,7 @@ import { authHash, authPepper, bad, ensureCustomerSchema, json, normalizeCustome
 
 export async function onRequestPost(context) {
   if (!sameOriginRequest(context.request)) return bad('درخواست نامعتبر است.', 403);
+  if (!context.env?.DB) return bad('اتصال حساب کاربری به دیتابیس برقرار نیست.', 500);
   const body = await context.request.json().catch(() => null);
   const identifier = normalizeCustomerIdentifier(body?.identifier);
   const password = String(body?.password || '');
