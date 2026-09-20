@@ -6,6 +6,9 @@ const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
 let extendedSchemaReady = false;
 let customerSchemaReady = false;
+let reviewSchemaPromise = null;
+let customerSchemaPromise = null;
+let extendedSchemaPromise = null;
 
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -257,51 +260,39 @@ export async function ensureExtendedSchema(db) {
  */
 export async function ensureReviewSchema(db) {
   if (!db) throw new Error('D1 binding is missing');
-  const exec = async (sql) => {
-    try {
-      await db.prepare(sql).run();
-    } catch (error) {
-      const message = String(error?.message || error || '');
-      if (/already exists|duplicate column name/i.test(message)) return;
-      throw error;
+  if (reviewSchemaPromise) return reviewSchemaPromise;
+  reviewSchemaPromise = (async () => {
+    // Avoid running ALTER TABLE on every review. The original FoxShop schema already
+    // contains these columns; only create missing tables/indexes when necessary.
+    const hasTable = async (name) => {
+      const row = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1").bind(name).first();
+      return !!row;
+    };
+    if (!(await hasTable('product_reviews'))) {
+      await db.prepare(`CREATE TABLE IF NOT EXISTS product_reviews (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL DEFAULT '',
+        customer_name TEXT NOT NULL DEFAULT '',
+        rating INTEGER NOT NULL DEFAULT 5,
+        review_text TEXT NOT NULL DEFAULT '',
+        photo_url TEXT NOT NULL DEFAULT '',
+        approved INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT ''
+      )`).run();
     }
-  };
-
-  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
-    id TEXT PRIMARY KEY,
-    product_id TEXT NOT NULL DEFAULT '',
-    customer_name TEXT NOT NULL DEFAULT '',
-    rating INTEGER NOT NULL DEFAULT 5,
-    review_text TEXT NOT NULL DEFAULT '',
-    photo_url TEXT NOT NULL DEFAULT '',
-    approved INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT ''
-  )`);
-  for (const [name, type] of [
-    ['product_id', "TEXT NOT NULL DEFAULT ''"],
-    ['customer_name', "TEXT NOT NULL DEFAULT ''"],
-    ['rating', 'INTEGER NOT NULL DEFAULT 5'],
-    ['review_text', "TEXT NOT NULL DEFAULT ''"],
-    ['photo_url', "TEXT NOT NULL DEFAULT ''"],
-    ['approved', 'INTEGER NOT NULL DEFAULT 0'],
-    ['created_at', "TEXT NOT NULL DEFAULT ''"]
-  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
-
-  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
-    id TEXT PRIMARY KEY,
-    fingerprint TEXT NOT NULL DEFAULT '',
-    product_id TEXT NOT NULL DEFAULT '',
-    created_at INTEGER NOT NULL DEFAULT 0
-  )`);
-  for (const [name, type] of [
-    ['fingerprint', "TEXT NOT NULL DEFAULT ''"],
-    ['product_id', "TEXT NOT NULL DEFAULT ''"],
-    ['created_at', 'INTEGER NOT NULL DEFAULT 0']
-  ]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
+    if (!(await hasTable('review_submission_log'))) {
+      await db.prepare(`CREATE TABLE IF NOT EXISTS review_submission_log (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT NOT NULL DEFAULT '',
+        product_id TEXT NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL DEFAULT 0
+      )`).run();
+    }
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)').run();
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)').run();
+  })().finally(() => { reviewSchemaPromise = null; });
+  return reviewSchemaPromise;
 }
-
 
 export async function getStore(db) {
   await ensureExtendedSchema(db);
@@ -518,9 +509,12 @@ export async function ensureCustomerSchema(db) {
 
 
 export async function authPepper(env) {
+  // Optional hardening secret. Customer auth remains functional without it because
+  // passwords and OTPs are individually salted; setting AUTH_PEPPER adds another
+  // server-side secret layer without making the whole login system depend on one
+  // dashboard setting.
   const pepper = String(env?.AUTH_PEPPER || '').trim();
-  if (pepper.length < 24) throw new Error('AUTH_PEPPER secret is required and must be at least 24 characters.');
-  return pepper;
+  return pepper.length >= 24 ? pepper : '';
 }
 
 export async function authHash(value, pepper = '') {

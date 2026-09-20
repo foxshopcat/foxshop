@@ -22,8 +22,19 @@ export async function onRequestPost(context) {
   if (customerName.length < 2) return bad('نام نمایشی کوتاه است.');
 
   if (!context.env?.DB) return bad('اتصال فروشگاه به Cloudflare D1 برقرار نیست.', 500);
-  await ensureReviewSchema(context.env.DB);
-  const product = await context.env.DB.prepare('SELECT id FROM products WHERE id=? LIMIT 1').bind(productId).first();
+  try {
+    await ensureReviewSchema(context.env.DB);
+  } catch (schemaError) {
+    console.error('FoxShop review schema error:', schemaError);
+    return bad('ساختار بخش نظرات در دیتابیس آماده نیست. لطفاً دوباره تلاش کنید.', 503);
+  }
+  let product;
+  try {
+    product = await context.env.DB.prepare('SELECT id FROM products WHERE id=? LIMIT 1').bind(productId).first();
+  } catch (dbError) {
+    console.error('FoxShop review product lookup error:', dbError);
+    return bad('خواندن اطلاعات محصول از دیتابیس انجام نشد.', 503);
+  }
   if (!product) return bad('محصول پیدا نشد.', 404);
 
   const rawIp = context.request.headers.get('CF-Connecting-IP') || context.request.headers.get('X-Forwarded-For') || 'unknown';
@@ -44,8 +55,13 @@ export async function onRequestPost(context) {
 
   const now = new Date().toISOString();
   const id = `review_${crypto.randomUUID()}`;
-  await context.env.DB.prepare('INSERT INTO product_reviews(id,product_id,customer_name,rating,review_text,photo_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?)')
-    .bind(id, productId, customerName, rating, reviewText, '', 0, now).run();
+  try {
+    await context.env.DB.prepare('INSERT INTO product_reviews(id,product_id,customer_name,rating,review_text,photo_url,approved,created_at) VALUES(?,?,?,?,?,?,?,?)')
+      .bind(id, productId, customerName, rating, reviewText, '', 0, now).run();
+  } catch (insertError) {
+    console.error('FoxShop review insert error:', insertError);
+    return bad('ثبت نظر در دیتابیس انجام نشد. لطفاً دوباره تلاش کنید.', 503);
+  }
 
   try {
     await context.env.DB.prepare('INSERT INTO review_submission_log(id,fingerprint,product_id,created_at) VALUES(?,?,?,?)')
