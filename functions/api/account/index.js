@@ -1,6 +1,7 @@
 import { bad, ensureCustomerSchema, json, requireCustomer, sameOriginRequest } from '../_shared.js';
 
 export async function onRequestGet(context) {
+  if (!context.env?.DB) return bad('اتصال حساب کاربری به دیتابیس برقرار نیست.', 500);
   const customer = await requireCustomer(context);
   if (!customer) return json({ ok:true, authenticated:false });
   await ensureCustomerSchema(context.env.DB);

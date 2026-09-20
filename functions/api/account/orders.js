@@ -1,6 +1,7 @@
 import { bad, ensureCustomerSchema, json, requireCustomer, sameOriginRequest } from '../_shared.js';
 export async function onRequestPost(context){
   if(!sameOriginRequest(context.request)) return bad('درخواست نامعتبر است.',403);
+  if(!context.env?.DB) return bad('اتصال حساب کاربری به دیتابیس برقرار نیست.',500);
   const customer=await requireCustomer(context); if(!customer) return bad('برای ثبت سابقه سفارش باید وارد حساب شوید.',401);
   const body=await context.request.json().catch(()=>null); const channel=body?.channel==='rubika'?'rubika':'instagram'; const items=Array.isArray(body?.items)?body.items:[];
   if(!items.length || items.length>100) return bad('سبد خرید خالی یا نامعتبر است.');

@@ -1,6 +1,7 @@
 import { bad, ensureCustomerSchema, json, requireCustomer, sameOriginRequest } from '../_shared.js';
 export async function onRequestPut(context) {
   if (!sameOriginRequest(context.request)) return bad('درخواست نامعتبر است.',403);
+  if (!context.env?.DB) return bad('اتصال حساب کاربری به دیتابیس برقرار نیست.',500);
   const customer=await requireCustomer(context); if(!customer) return bad('نیاز به ورود به حساب کاربری دارید.',401);
   const body=await context.request.json().catch(()=>null); const productId=String(body?.productId||'').trim().slice(0,120); const active=Boolean(body?.active);
   if(!productId) return bad('محصول نامعتبر است.');
