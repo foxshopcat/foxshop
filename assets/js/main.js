@@ -166,18 +166,41 @@ function applyRemoteStore(store) {
   return true;
 }
 
+const FOXSHOP_STORE_CACHE_KEY = "foxshop_store_cache_v1";
+const FOXSHOP_STORE_CACHE_TTL = 30000;
+
+function readFoxShopStoreCache() {
+  try {
+    const raw = sessionStorage.getItem(FOXSHOP_STORE_CACHE_KEY);
+    const cached = raw ? JSON.parse(raw) : null;
+    if (!cached || !cached.data || !cached.ts) return null;
+    if (Date.now() - Number(cached.ts) > FOXSHOP_STORE_CACHE_TTL) return null;
+    return cached.data;
+  } catch (_) { return null; }
+}
+
 async function refreshRemoteStore() {
   const data = await apiRequest("/store", { timeoutMs: 6000 });
   applyRemoteStore(data);
+  try { sessionStorage.setItem(FOXSHOP_STORE_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
   return data;
 }
 
-// Start the public catalog request as soon as this script is parsed and reuse
-// the same in-flight promise during normal page initialization. This removes
-// unnecessary waiting for DOMContentLoaded without changing the data source.
+// Start the public catalog request as soon as this script is parsed. A recent
+// session cache paints the catalog immediately, while a background request
+// refreshes it without making page initialization wait for the network.
 let foxShopEarlyStorePromise = null;
 function getRemoteStoreOnce() {
-  if (!foxShopEarlyStorePromise) foxShopEarlyStorePromise = refreshRemoteStore();
+  if (!foxShopEarlyStorePromise) {
+    const cached = readFoxShopStoreCache();
+    if (cached) {
+      applyRemoteStore(cached);
+      foxShopEarlyStorePromise = Promise.resolve(cached);
+      Promise.resolve().then(() => refreshRemoteStore().catch(() => {}));
+    } else {
+      foxShopEarlyStorePromise = refreshRemoteStore();
+    }
+  }
   return foxShopEarlyStorePromise;
 }
 
@@ -249,6 +272,7 @@ function saveCart() {
   safeSaveStorage(LS_CART, cart);
   updateCartBadge();
   renderCartDrawer();
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('foxshop:cart-changed', { detail: { items: cart } }));
 }
 
 /**
