@@ -303,6 +303,120 @@ export async function ensureReviewSchema(db) {
 }
 
 
+export async function getStore(db) {
+  await ensureExtendedSchema(db);
+  const [cats, prods, details, reviews, stories, rows] = await Promise.all([
+    db.prepare('SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories ORDER BY sort_order ASC, created_at ASC').all(),
+    db.prepare('SELECT id,name,category_id AS categoryId,stock_status AS stockStatus,original_price AS originalPrice,discount_percent AS discountPercent,final_price AS finalPrice,is_featured AS isFeatured,is_best_seller AS isBestSeller,is_new AS isNew,image,image_key AS imageKey,short_desc AS shortDesc,full_desc AS fullDesc FROM products ORDER BY created_at DESC').all(),
+    db.prepare('SELECT * FROM product_details').all(),
+    db.prepare('SELECT id,product_id AS productId,customer_name AS customerName,rating,review_text AS reviewText,photo_url AS photoUrl,created_at AS createdAt FROM product_reviews WHERE approved=1 ORDER BY created_at DESC').all(),
+    db.prepare('SELECT id,customer_name AS customerName,cat_name AS catName,photo_url AS photoUrl,quote,created_at AS createdAt FROM customer_stories WHERE approved=1 ORDER BY created_at DESC').all(),
+    db.prepare('SELECT key,value FROM settings').all()
+  ]);
+
+  const detailsByProduct = {};
+  for (const row of details?.results || []) detailsByProduct[row.product_id] = normalizeDetails(row);
+  const reviewsByProduct = {};
+  for (const row of reviews?.results || []) (reviewsByProduct[row.productId] ||= []).push(row);
+
+  const settings = {};
+  for (const r of rows?.results || []) {
+    const parsed = safeJson(r.value, null);
+    settings[r.key] = parsed === null ? r.value : parsed;
+  }
+
+  const products = (prods?.results || []).map(p => ({
+    ...p,
+    isFeatured: Boolean(p.isFeatured),
+    isBestSeller: Boolean(p.isBestSeller),
+    isNew: Boolean(p.isNew),
+    details: detailsByProduct[p.id] || normalizeDetails(null),
+    reviews: reviewsByProduct[p.id] || []
+  }));
+
+  return {
+    categories: cats?.results || [],
+    products,
+    settings,
+    customerStories: stories?.results || []
+  };
+}
+
+export function cleanJsonArray(value, maxItems = 40, maxItemLength = 2000) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, maxItems).map(item => {
+    if (typeof item === 'string') return cleanString(item, maxItemLength);
+    if (!item || typeof item !== 'object') return null;
+    const copy = {};
+    for (const [k, v] of Object.entries(item).slice(0, 16)) {
+      if (typeof v === 'string') copy[k] = cleanString(v, maxItemLength);
+      else if (typeof v === 'number' || typeof v === 'boolean') copy[k] = v;
+    }
+    return copy;
+  }).filter(Boolean);
+}
+
+export function buildProductDetails(body = {}) {
+  const list = cleanJsonArray;
+  const actualStock = body.actualStock === '' || body.actualStock == null ? null : Math.max(0, Math.floor(Number(body.actualStock) || 0));
+  const minStock = body.minStock === '' || body.minStock == null ? null : Math.max(0, Math.floor(Number(body.minStock) || 0));
+  return {
+    slug: cleanString(body.slug, 160),
+    brand: cleanString(body.brand, 160),
+    weight: cleanString(body.weight, 100),
+    volume: cleanString(body.volume, 100),
+    flavor: cleanString(body.flavor, 180),
+    suitableAge: cleanString(body.suitableAge, 260),
+    goals: cleanString(body.goals, 400),
+    ingredients: cleanString(body.ingredients, 12000),
+    nutritionAnalysis: cleanString(body.nutritionAnalysis, 10000),
+    country: cleanString(body.country, 120),
+    barcode: cleanString(body.barcode, 80),
+    expiryDate: cleanString(body.expiryDate, 80),
+    usageMethod: cleanString(body.usageMethod, 3000),
+    warranty: cleanString(body.warranty, 500),
+    storage: cleanString(body.storage, 1200),
+    authenticity: cleanString(body.authenticity, 1000),
+    actualStock: actualStock,
+    minStock: minStock,
+    restockTime: cleanString(body.restockTime, 160),
+    rating: Math.min(5, Math.max(0, Number(body.rating) || 0)),
+    reviewCount: Math.max(0, Math.floor(Number(body.reviewCount) || 0)),
+    salesCount: Math.max(0, Math.floor(Number(body.salesCount) || 0)),
+    moreImages: list(body.moreImages, 8, 500000),
+    faq: list(body.faq, 12, 1000),
+    relatedIds: list(body.relatedIds, 12, 120),
+    tags: list(body.tags, 30, 80),
+    consumable: Boolean(body.consumable)
+  };
+}
+
+export async function upsertProductDetails(db, productId, details) {
+  await ensureExtendedSchema(db);
+  const now = new Date().toISOString();
+  return db.prepare(`INSERT INTO product_details(
+    product_id,slug,brand,weight,volume,flavor,suitable_age,goals,ingredients,nutrition_analysis,country,barcode,expiry_date,
+    usage_method,warranty,storage,authenticity,actual_stock,min_stock,restock_time,rating,review_count,sales_count,more_images_json,
+    faq_json,related_ids_json,tags_json,consumable,created_at,updated_at
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  ON CONFLICT(product_id) DO UPDATE SET
+    slug=excluded.slug,brand=excluded.brand,weight=excluded.weight,volume=excluded.volume,flavor=excluded.flavor,
+    suitable_age=excluded.suitable_age,goals=excluded.goals,ingredients=excluded.ingredients,nutrition_analysis=excluded.nutrition_analysis,
+    country=excluded.country,barcode=excluded.barcode,expiry_date=excluded.expiry_date,usage_method=excluded.usage_method,warranty=excluded.warranty,
+    storage=excluded.storage,authenticity=excluded.authenticity,actual_stock=excluded.actual_stock,min_stock=excluded.min_stock,
+    restock_time=excluded.restock_time,rating=excluded.rating,review_count=excluded.review_count,sales_count=excluded.sales_count,
+    more_images_json=excluded.more_images_json,faq_json=excluded.faq_json,related_ids_json=excluded.related_ids_json,tags_json=excluded.tags_json,
+    consumable=excluded.consumable,updated_at=excluded.updated_at`)
+    .bind(
+      productId, details.slug, details.brand, details.weight, details.volume, details.flavor, details.suitableAge, details.goals,
+      details.ingredients, details.nutritionAnalysis, details.country, details.barcode, details.expiryDate, details.usageMethod,
+      details.warranty, details.storage, details.authenticity, details.actualStock, details.minStock, details.restockTime, details.rating,
+      details.reviewCount, details.salesCount, JSON.stringify(details.moreImages), JSON.stringify(details.faq), JSON.stringify(details.relatedIds),
+      JSON.stringify(details.tags), details.consumable ? 1 : 0, now, now
+    ).run();
+}
+
+
 const CUSTOMER_SESSION_DAYS = 30;
 const CUSTOMER_SESSION_COOKIE = '__Host-foxshop_customer_session';
 
@@ -347,22 +461,19 @@ export async function ensureCustomerSchema(db) {
   await exec(`CREATE TABLE IF NOT EXISTS customers (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE,
-    phone TEXT UNIQUE,
     display_name TEXT NOT NULL DEFAULT '',
     password_hash TEXT,
     password_salt TEXT,
     email_verified INTEGER NOT NULL DEFAULT 0,
-    phone_verified INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT '',
     updated_at TEXT NOT NULL DEFAULT ''
   )`);
   for (const [name, type] of [
-    ['email', 'TEXT'], ['phone', 'TEXT'], ['display_name', "TEXT NOT NULL DEFAULT ''"],
+    ['email', 'TEXT'], ['display_name', "TEXT NOT NULL DEFAULT ''"],
     ['password_hash', 'TEXT'], ['password_salt', 'TEXT'], ['email_verified', 'INTEGER NOT NULL DEFAULT 0'],
-    ['phone_verified', 'INTEGER NOT NULL DEFAULT 0'], ['created_at', "TEXT NOT NULL DEFAULT ''"], ['updated_at', "TEXT NOT NULL DEFAULT ''"]
+    ['created_at', "TEXT NOT NULL DEFAULT ''"], ['updated_at', "TEXT NOT NULL DEFAULT ''"]
   ]) await exec(`ALTER TABLE customers ADD COLUMN ${name} ${type}`);
   await exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email ON customers(email) WHERE email IS NOT NULL AND email <> \'\'');
-  await exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone) WHERE phone IS NOT NULL AND phone <> \'\'');
 
   await exec(`CREATE TABLE IF NOT EXISTS customer_sessions (
     token_hash TEXT PRIMARY KEY, customer_id TEXT NOT NULL, expires_at INTEGER NOT NULL,
@@ -427,11 +538,12 @@ export async function createCustomerSession(db, customerId) {
 
 export async function requireCustomer(context) {
   const raw = getCookie(context.request, CUSTOMER_SESSION_COOKIE);
-  if (!raw || !context.env?.DB) return null;
+  if (!raw || !context?.env?.DB) return null;
+  await ensureCustomerSchema(context.env.DB);
   const hash = await sha256Hex(raw);
   const customer = await context.env.DB.prepare(`
-    SELECT c.id,c.email,c.phone,c.display_name AS displayName,c.password_hash AS passwordHash,
-           c.password_salt AS passwordSalt,c.email_verified AS emailVerified,c.phone_verified AS phoneVerified
+    SELECT c.id,c.email,c.display_name AS displayName,c.password_hash AS passwordHash,
+           c.password_salt AS passwordSalt,c.email_verified AS emailVerified
     FROM customer_sessions s JOIN customers c ON c.id=s.customer_id
     WHERE s.token_hash=? AND s.expires_at>? LIMIT 1
   `).bind(hash, Date.now()).first();
@@ -443,7 +555,8 @@ export async function requireCustomer(context) {
 
 export async function deleteCustomerSession(context) {
   const raw = getCookie(context.request, CUSTOMER_SESSION_COOKIE);
-  if (!raw || !context.env?.DB) return;
+  if (!raw || !context?.env?.DB) return;
+  await ensureCustomerSchema(context.env.DB);
   const hash = await sha256Hex(raw);
   await context.env.DB.prepare('DELETE FROM customer_sessions WHERE token_hash=?').bind(hash).run();
 }
