@@ -769,6 +769,10 @@
     patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectGlobalSearch(); injectTrustFooter();
     if (document.getElementById('home-featured-grid') && typeof window.renderHomeFeatured === 'function') window.renderHomeFeatured();
     if (document.getElementById('catalog-products-grid') && typeof window.renderProductsCatalog === 'function') window.renderProductsCatalog();
+    if (document.getElementById('product-page-root')) renderProductPage();
+    if (document.getElementById('favorites-root')) renderFavoritesPage();
+    if (document.getElementById('compare-root')) renderComparePage();
+    if (document.getElementById('quiz-root')) renderQuizPage();
     const commerce = document.getElementById('fox-home-commerce');
     if (commerce) commerce.remove();
     if (document.getElementById('home-categories-grid')) injectHomeCommerceSections();
@@ -776,6 +780,8 @@
   }
 
   function initFeatures(){
+    // The public catalog must be live D1 data before any product-dependent page renders.
+    if (typeof window !== 'undefined' && window.__FOXSHOP_STORE_READY__ !== true) return;
     patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectHeaderLinks(); injectGlobalSearch(); injectTrustFooter(); updateWishlistUI(); updateCompareBar();
     const path=location.pathname;
     if (document.getElementById('home-featured-grid') && typeof window.renderHomeFeatured === 'function') window.renderHomeFeatured();
