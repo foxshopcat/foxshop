@@ -99,7 +99,7 @@ header.sticky {
 }
 header.sticky > div > div { min-height: 78px; }
 .brand-logo-trigger > div {
-  border-radius: 22px !important;
+  border-radius: 50% !important;
   background: linear-gradient(145deg,#fff4e8,#fffaf6) !important;
   box-shadow: 0 10px 28px rgba(255,122,24,.18), inset 0 0 0 1px rgba(255,255,255,.65) !important;
   position: relative;
@@ -881,6 +881,7 @@ header.sticky {
 }
 header.sticky > div > div { min-height:74px !important; }
 .brand-logo-trigger > div {
+  border-radius: 50% !important;
   background:linear-gradient(145deg,#fff2e4,#fff8f2) !important;
   box-shadow:0 10px 26px rgba(244,123,48,.16), inset 0 0 0 1px rgba(255,255,255,.8) !important;
 }
@@ -2250,7 +2251,7 @@ main,header,footer,section,article,nav,.max-w-7xl,.grid,.flex{min-width:0}
   width: 86px;
   height: 86px;
   padding: 7px;
-  border-radius: 24px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
