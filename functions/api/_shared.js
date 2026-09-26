@@ -5,9 +5,6 @@ const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
 let extendedSchemaReady = false;
-let customerSchemaReady = false;
-let reviewSchemaPromise = null;
-let customerSchemaPromise = null;
 let extendedSchemaPromise = null;
 
 export function json(data, status = 200, extra = {}) {
@@ -174,8 +171,7 @@ function normalizeDetails(row) {
 export async function ensureExtendedSchema(db) {
   if (!db || extendedSchemaReady) return;
 
-  // D1 can survive several deployments. Migrate legacy tables one statement at a time
-  // so one incompatible old column never turns the admin review API into a generic 500.
+  // D1 can survive several deployments. Legacy product-detail columns remain compatible.
   const exec = async (sql) => {
     try {
       await db.prepare(sql).run();
@@ -212,23 +208,6 @@ export async function ensureExtendedSchema(db) {
   await exec('CREATE INDEX IF NOT EXISTS idx_product_details_brand ON product_details(brand)');
   await exec(`INSERT OR IGNORE INTO product_details(product_id, created_at, updated_at) SELECT id, datetime('now'), datetime('now') FROM products`);
 
-  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
-    id TEXT PRIMARY KEY, product_id TEXT NOT NULL, customer_name TEXT NOT NULL DEFAULT '', rating INTEGER NOT NULL DEFAULT 5,
-    review_text TEXT NOT NULL DEFAULT '', photo_url TEXT NOT NULL DEFAULT '', approved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT ''
-  )`);
-  for (const [name, type] of [
-    ['product_id', "TEXT NOT NULL DEFAULT ''"], ['customer_name', "TEXT NOT NULL DEFAULT ''"], ['rating', 'INTEGER NOT NULL DEFAULT 5'],
-    ['review_text', "TEXT NOT NULL DEFAULT ''"], ['photo_url', "TEXT NOT NULL DEFAULT ''"], ['approved', 'INTEGER NOT NULL DEFAULT 0'],
-    ['created_at', "TEXT NOT NULL DEFAULT ''"]
-  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
-
-  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
-    id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL DEFAULT '', product_id TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL DEFAULT 0
-  )`);
-  for (const [name, type] of [['fingerprint', "TEXT NOT NULL DEFAULT ''"], ['product_id', "TEXT NOT NULL DEFAULT ''"], ['created_at', 'INTEGER NOT NULL DEFAULT 0']]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
-
   await exec(`CREATE TABLE IF NOT EXISTS customer_stories (
     id TEXT PRIMARY KEY, customer_name TEXT NOT NULL DEFAULT '', cat_name TEXT NOT NULL DEFAULT '', photo_url TEXT NOT NULL DEFAULT '',
     quote TEXT NOT NULL DEFAULT '', approved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT ''
@@ -253,62 +232,18 @@ export async function ensureExtendedSchema(db) {
 }
 
 
-/**
- * Minimal, isolated D1 migration for the customer-review feature.
- * It intentionally does not depend on product_details/settings/customer_stories,
- * so an older database can still serve /api/admin/review and /api/review safely.
- */
-export async function ensureReviewSchema(db) {
-  if (!db) throw new Error('D1 binding is missing');
-  if (reviewSchemaPromise) return reviewSchemaPromise;
-  reviewSchemaPromise = (async () => {
-    // Avoid running ALTER TABLE on every review. The original FoxShop schema already
-    // contains these columns; only create missing tables/indexes when necessary.
-    const hasTable = async (name) => {
-      const row = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1").bind(name).first();
-      return !!row;
-    };
-    if (!(await hasTable('product_reviews'))) {
-      await db.prepare(`CREATE TABLE IF NOT EXISTS product_reviews (
-        id TEXT PRIMARY KEY,
-        product_id TEXT NOT NULL DEFAULT '',
-        customer_name TEXT NOT NULL DEFAULT '',
-        rating INTEGER NOT NULL DEFAULT 5,
-        review_text TEXT NOT NULL DEFAULT '',
-        photo_url TEXT NOT NULL DEFAULT '',
-        approved INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT ''
-      )`).run();
-    }
-    if (!(await hasTable('review_submission_log'))) {
-      await db.prepare(`CREATE TABLE IF NOT EXISTS review_submission_log (
-        id TEXT PRIMARY KEY,
-        fingerprint TEXT NOT NULL DEFAULT '',
-        product_id TEXT NOT NULL DEFAULT '',
-        created_at INTEGER NOT NULL DEFAULT 0
-      )`).run();
-    }
-    await db.prepare('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)').run();
-    await db.prepare('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)').run();
-  })().finally(() => { reviewSchemaPromise = null; });
-  return reviewSchemaPromise;
-}
-
 export async function getStore(db) {
   await ensureExtendedSchema(db);
-  const [cats, prods, details, reviews, stories, rows] = await Promise.all([
+  const [cats, prods, details, stories, rows] = await Promise.all([
     db.prepare('SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories ORDER BY sort_order ASC, created_at ASC').all(),
     db.prepare('SELECT id,name,category_id AS categoryId,stock_status AS stockStatus,original_price AS originalPrice,discount_percent AS discountPercent,final_price AS finalPrice,is_featured AS isFeatured,is_best_seller AS isBestSeller,is_new AS isNew,image,image_key AS imageKey,short_desc AS shortDesc,full_desc AS fullDesc FROM products ORDER BY created_at DESC').all(),
     db.prepare('SELECT * FROM product_details').all(),
-    db.prepare('SELECT id,product_id AS productId,customer_name AS customerName,rating,review_text AS reviewText,photo_url AS photoUrl,created_at AS createdAt FROM product_reviews WHERE approved=1 ORDER BY created_at DESC').all(),
     db.prepare('SELECT id,customer_name AS customerName,cat_name AS catName,photo_url AS photoUrl,quote,created_at AS createdAt FROM customer_stories WHERE approved=1 ORDER BY created_at DESC').all(),
     db.prepare('SELECT key,value FROM settings').all()
   ]);
 
   const detailsByProduct = {};
   for (const row of details?.results || []) detailsByProduct[row.product_id] = normalizeDetails(row);
-  const reviewsByProduct = {};
-  for (const row of reviews?.results || []) (reviewsByProduct[row.productId] ||= []).push(row);
 
   const settings = {};
   for (const r of rows?.results || []) {
@@ -321,8 +256,7 @@ export async function getStore(db) {
     isFeatured: Boolean(p.isFeatured),
     isBestSeller: Boolean(p.isBestSeller),
     isNew: Boolean(p.isNew),
-    details: detailsByProduct[p.id] || normalizeDetails(null),
-    reviews: reviewsByProduct[p.id] || []
+    details: detailsByProduct[p.id] || normalizeDetails(null)
   }));
 
   return {
@@ -407,212 +341,4 @@ export async function upsertProductDetails(db, productId, details) {
     ).run();
 }
 
-
-const CUSTOMER_SESSION_DAYS = 30;
-const CUSTOMER_SESSION_COOKIE = '__Host-foxshop_customer_session';
-
-export function normalizeEmail(value) {
-  const email = String(value ?? '').trim().toLowerCase();
-  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return '';
-  return email;
-}
-
-export function normalizeCustomerIdentifier(value) {
-  const email = normalizeEmail(value);
-  return email ? { type: 'email', value: email } : null;
-}
-
-export function validatePassword(value) {
-  const p = String(value ?? '');
-  if (p.length < 8 || p.length > 128) return 'رمز عبور باید بین ۸ تا ۱۲۸ کاراکتر باشد.';
-  if (/^\s+$/.test(p)) return 'رمز عبور معتبر نیست.';
-  return '';
-}
-
-export function customerSessionCookie(value) {
-  return `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(value)}; Max-Age=${CUSTOMER_SESSION_DAYS * 24 * 60 * 60}; Path=/; HttpOnly; Secure; SameSite=Lax`;
-}
-
-export function clearCustomerSessionCookie() {
-  return `${CUSTOMER_SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`;
-}
-
-export async function ensureCustomerSchema(db) {
-  if (!db) throw new Error('D1 binding is missing');
-  if (customerSchemaReady) return;
-  const exec = async (sql) => {
-    try { await db.prepare(sql).run(); }
-    catch (error) {
-      const message = String(error?.message || error || '');
-      if (/already exists|duplicate column name/i.test(message)) return;
-      throw error;
-    }
-  };
-
-  await exec(`CREATE TABLE IF NOT EXISTS customers (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE,
-    display_name TEXT NOT NULL DEFAULT '',
-    password_hash TEXT,
-    password_salt TEXT,
-    email_verified INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL DEFAULT ''
-  )`);
-  for (const [name, type] of [
-    ['email', 'TEXT'], ['display_name', "TEXT NOT NULL DEFAULT ''"],
-    ['password_hash', 'TEXT'], ['password_salt', 'TEXT'], ['email_verified', 'INTEGER NOT NULL DEFAULT 0'],
-    ['created_at', "TEXT NOT NULL DEFAULT ''"], ['updated_at', "TEXT NOT NULL DEFAULT ''"]
-  ]) await exec(`ALTER TABLE customers ADD COLUMN ${name} ${type}`);
-  await exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email ON customers(email) WHERE email IS NOT NULL AND email <> \'\'');
-
-  await exec(`CREATE TABLE IF NOT EXISTS customer_sessions (
-    token_hash TEXT PRIMARY KEY, customer_id TEXT NOT NULL, expires_at INTEGER NOT NULL,
-    created_at TEXT NOT NULL DEFAULT '', last_seen_at INTEGER NOT NULL DEFAULT 0
-  )`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_sessions_customer ON customer_sessions(customer_id)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_sessions_expiry ON customer_sessions(expires_at)');
-
-  await exec(`CREATE TABLE IF NOT EXISTS customer_otps (
-    id TEXT PRIMARY KEY, customer_id TEXT, identifier_hash TEXT NOT NULL, channel TEXT NOT NULL,
-    code_hash TEXT NOT NULL, code_salt TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
-    consumed INTEGER NOT NULL DEFAULT 0, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL,
-    ip_hash TEXT NOT NULL DEFAULT ''
-  )`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_otps_identifier ON customer_otps(identifier_hash, channel, created_at)');
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_otps_ip ON customer_otps(ip_hash, created_at)');
-
-  await exec(`CREATE TABLE IF NOT EXISTS customer_auth_attempts (
-    key_hash TEXT PRIMARY KEY, fail_count INTEGER NOT NULL DEFAULT 0, locked_until INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0
-  )`);
-
-  await exec(`CREATE TABLE IF NOT EXISTS customer_wishlist (
-    customer_id TEXT NOT NULL, product_id TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT '',
-    PRIMARY KEY(customer_id, product_id)
-  )`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_wishlist_customer ON customer_wishlist(customer_id)');
-
-  await exec(`CREATE TABLE IF NOT EXISTS customer_cart (
-    customer_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1,
-    updated_at TEXT NOT NULL DEFAULT '', PRIMARY KEY(customer_id, product_id)
-  )`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_cart_customer ON customer_cart(customer_id)');
-
-  await exec(`CREATE TABLE IF NOT EXISTS customer_order_requests (
-    id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, channel TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending_contact', total_amount REAL NOT NULL DEFAULT 0,
-    items_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL DEFAULT ''
-  )`);
-  await exec('CREATE INDEX IF NOT EXISTS idx_customer_orders_customer ON customer_order_requests(customer_id, created_at)');
-  customerSchemaReady = true;
-}
-
-
-export async function authPepper(env) {
-  // Optional hardening secret. Customer auth remains functional without it because
-  // passwords and OTPs are individually salted; setting AUTH_PEPPER adds another
-  // server-side secret layer without making the whole login system depend on one
-  // dashboard setting.
-  const pepper = String(env?.AUTH_PEPPER || '').trim();
-  return pepper.length >= 24 ? pepper : '';
-}
-
-export async function authHash(value, pepper = '') {
-  return sha256Hex(`${String(pepper)}:${String(value)}`);
-}
-
-export async function createCustomerSession(db, customerId) {
-  const raw = await randomHex(32);
-  const tokenHash = await sha256Hex(raw);
-  const expiresAt = Date.now() + CUSTOMER_SESSION_DAYS * 24 * 60 * 60 * 1000;
-  await db.prepare('INSERT INTO customer_sessions(token_hash,customer_id,expires_at,created_at,last_seen_at) VALUES(?,?,?,?,?)')
-    .bind(tokenHash, customerId, expiresAt, new Date().toISOString(), Date.now()).run();
-  return { raw, expiresAt };
-}
-
-export async function requireCustomer(context) {
-  const raw = getCookie(context.request, CUSTOMER_SESSION_COOKIE);
-  if (!raw || !context?.env?.DB) return null;
-  await ensureCustomerSchema(context.env.DB);
-  const hash = await sha256Hex(raw);
-  const customer = await context.env.DB.prepare(`
-    SELECT c.id,c.email,c.display_name AS displayName,c.password_hash AS passwordHash,
-           c.password_salt AS passwordSalt,c.email_verified AS emailVerified
-    FROM customer_sessions s JOIN customers c ON c.id=s.customer_id
-    WHERE s.token_hash=? AND s.expires_at>? LIMIT 1
-  `).bind(hash, Date.now()).first();
-  if (customer) {
-    context.env.DB.prepare('UPDATE customer_sessions SET last_seen_at=? WHERE token_hash=?').bind(Date.now(), hash).run().catch(() => {});
-  }
-  return customer || null;
-}
-
-export async function deleteCustomerSession(context) {
-  const raw = getCookie(context.request, CUSTOMER_SESSION_COOKIE);
-  if (!raw || !context?.env?.DB) return;
-  await ensureCustomerSchema(context.env.DB);
-  const hash = await sha256Hex(raw);
-  await context.env.DB.prepare('DELETE FROM customer_sessions WHERE token_hash=?').bind(hash).run();
-}
-
-export function sameOriginRequest(request) {
-  const origin = request.headers.get('Origin');
-  if (!origin) return true;
-  try { return new URL(origin).origin === new URL(request.url).origin; }
-  catch (_) { return false; }
-}
-
-export async function sendCustomerOtp({ env, identifier, code }) {
-  if (identifier?.type !== 'email') throw new Error('EMAIL_ONLY_AUTH');
-  const value = String(identifier.value || '');
-  const apiKey = String(env?.RESEND_API_KEY || '').trim();
-  const from = String(env?.AUTH_EMAIL_FROM || '').trim();
-  if (!apiKey || !from) throw new Error('EMAIL_PROVIDER_NOT_CONFIGURED');
-
-  const safeEmail = String(value).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[ch]));
-  const safeCode = String(code).replace(/\D/g, '').slice(0, 6);
-  const html = `<!doctype html>
-<html lang="fa" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;background:#fff7ed;font-family:Tahoma,Arial,sans-serif;color:#111827">
-  <div style="max-width:620px;margin:0 auto;padding:28px 16px">
-    <div style="background:#ffffff;border:1px solid #fed7aa;border-radius:28px;overflow:hidden;box-shadow:0 18px 55px rgba(87,44,17,.10)">
-      <div style="padding:28px 28px 20px;background:linear-gradient(135deg,#111827,#2b1738);color:#fff">
-        <div style="font-size:13px;font-weight:800;color:#fdba74;letter-spacing:.2px">FOXHRY • FOXSHOP</div>
-        <div style="font-size:30px;font-weight:900;margin-top:8px">خوش اومدی به FoxShop 🐾</div>
-        <div style="font-size:14px;line-height:2;margin-top:8px;color:rgba(255,255,255,.72)">برای ورود یا ساخت حساب کاربری، کد زیر را در سایت وارد کن.</div>
-      </div>
-      <div style="padding:30px 28px">
-        <div style="font-size:13px;color:#64748b">کد تأیید ورود شما</div>
-        <div style="margin:14px 0 20px;padding:20px 14px;border-radius:20px;background:#fff7ed;border:1px dashed #fdba74;text-align:center">
-          <div style="font-size:38px;line-height:1;font-weight:900;letter-spacing:10px;color:#ea580c;direction:ltr">${safeCode}</div>
-        </div>
-        <p style="font-size:13px;line-height:2;color:#334155;margin:0">این کد تا <strong>۱۰ دقیقه</strong> معتبر است و فقط یک‌بار قابل استفاده است.</p>
-        <p style="font-size:12px;line-height:2;color:#94a3b8;margin:12px 0 0">این ایمیل برای ${safeEmail} ارسال شده است. اگر این درخواست متعلق به شما نیست، کافی است این پیام را نادیده بگیرید.</p>
-      </div>
-      <div style="padding:16px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center">FoxShop • حساب کاربری امن و سریع</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-  const text = `خوش اومدی به FoxShop 🐾\n\nکد تأیید ورود شما: ${safeCode}\n\nاین کد تا ۱۰ دقیقه معتبر است و فقط یک‌بار قابل استفاده است.\nاگر این درخواست متعلق به شما نیست، این پیام را نادیده بگیر.`;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      from,
-      to: [value],
-      subject: '🐾 خوش اومدی به FoxShop | کد ورود شما',
-      html,
-      text
-    })
-  });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    console.error('FoxShop email provider error:', res.status, detail.slice(0, 500));
-    throw new Error('EMAIL_PROVIDER_FAILED');
-  }
-  return true;
-}
 
