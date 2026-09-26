@@ -573,7 +573,23 @@
       </div>`).join('')}</div>`;
   }
 
-  function renderProductPage() {
+  let directProductRequest = null;
+  async function fetchDirectProduct(productId) {
+    const key = String(productId || '').trim();
+    if (!key) return null;
+    try {
+      const res = await fetch(`/api/product?id=${encodeURIComponent(key)}`, { credentials:'same-origin', cache:'no-store' });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!res.ok || !data?.ok || !data?.product) return null;
+      return data.product;
+    } catch (error) {
+      console.error('FoxShop direct product request failed:', error);
+      return null;
+    }
+  }
+
+  async function renderProductPage() {
     const root=document.getElementById('product-page-root'); if(!root) return;
     const rawId = getProductIdFromLocation();
     let id = '';
@@ -589,8 +605,21 @@
       return;
     }
 
-    const p=getProduct(id);
-    if(!p){ root.innerHTML='<div class="bg-white rounded-3xl p-10 text-center"><h1 class="text-xl font-black">محصول پیدا نشد</h1><p class="text-xs text-slate-500 mt-2">ممکن است محصول حذف شده یا لینک قدیمی باشد.</p><a href="products.html" class="inline-block mt-5 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">بازگشت به فروشگاه</a></div>'; return; }
+    let p=getProduct(id);
+    if (!p && id) {
+      if (directProductRequest !== id) directProductRequest = id;
+      const direct = await fetchDirectProduct(id);
+      if (direct) {
+        p = direct;
+        // Merge the direct product into the live catalog so related/favorites/cart
+        // helpers can immediately use the same object.
+        const current = Array.isArray(window.products) ? window.products : [];
+        if (!current.some(item => String(item?.id||'') === id)) {
+          current.push(direct);
+        }
+      }
+    }
+    if(!p){ root.innerHTML='<div class="bg-white rounded-3xl p-10 text-center"><h1 class="text-xl font-black">محصول پیدا نشد</h1><p class="text-xs text-slate-500 mt-2">این شناسه در Cloudflare D1 پیدا نشد.</p><a href="products.html" class="inline-block mt-5 px-5 py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">بازگشت به فروشگاه</a></div>'; return; }
     try {
     const x=inferredDetails(p);
     const relatedIds=(x.relatedIds||[]).map(String).filter(v=>v!==String(p.id));
@@ -769,10 +798,6 @@
     patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectGlobalSearch(); injectTrustFooter();
     if (document.getElementById('home-featured-grid') && typeof window.renderHomeFeatured === 'function') window.renderHomeFeatured();
     if (document.getElementById('catalog-products-grid') && typeof window.renderProductsCatalog === 'function') window.renderProductsCatalog();
-    if (document.getElementById('product-page-root')) renderProductPage();
-    if (document.getElementById('favorites-root')) renderFavoritesPage();
-    if (document.getElementById('compare-root')) renderComparePage();
-    if (document.getElementById('quiz-root')) renderQuizPage();
     const commerce = document.getElementById('fox-home-commerce');
     if (commerce) commerce.remove();
     if (document.getElementById('home-categories-grid')) injectHomeCommerceSections();
@@ -780,8 +805,6 @@
   }
 
   function initFeatures(){
-    // The public catalog must be live D1 data before any product-dependent page renders.
-    if (typeof window !== 'undefined' && window.__FOXSHOP_STORE_READY__ !== true) return;
     patchCartRenderer(); patchRenderers(); patchHomeRenderers(); injectHeaderLinks(); injectGlobalSearch(); injectTrustFooter(); updateWishlistUI(); updateCompareBar();
     const path=location.pathname;
     if (document.getElementById('home-featured-grid') && typeof window.renderHomeFeatured === 'function') window.renderHomeFeatured();

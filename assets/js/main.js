@@ -104,7 +104,7 @@ function normalizeProducts(list) {
     isFeatured: Boolean(item.isFeatured),
     isBestSeller: Boolean(item.isBestSeller),
     isNew: Boolean(item.isNew)
-  })).filter(item => item.id && item.name && item.categoryId);
+  })).filter(item => item.id && item.name);
 }
 
 function normalizeCart(list) {
@@ -165,14 +165,21 @@ function applyRemoteStore(store) {
 }
 
 // Cloudflare D1 is the single source of truth for the public catalog.
-// No browser/session cache is allowed to replace live D1 data.
+// No browser/session catalog cache and no bundled demo products are ever used.
 async function refreshRemoteStore() {
-  const data = await apiRequest("/store", { timeoutMs: 12000, cache: "no-store" });
-  applyRemoteStore(data);
-  return data;
+  try {
+    const data = await apiRequest("/store", { timeoutMs: 12000, cache: "no-store" });
+    applyRemoteStore(data);
+    return data;
+  } catch (storeError) {
+    // A secondary minimal catalog endpoint avoids blank stores when an unrelated
+    // auxiliary table/query makes the full /api/store response fail.
+    const data = await apiRequest("/products", { timeoutMs: 12000, cache: "no-store" });
+    applyRemoteStore(data);
+    return data;
+  }
 }
 
-// Start the live D1 request as soon as this script is parsed.
 let foxShopEarlyStorePromise = null;
 function getRemoteStoreOnce() {
   if (!foxShopEarlyStorePromise) foxShopEarlyStorePromise = refreshRemoteStore();
@@ -202,8 +209,7 @@ async function checkRemoteAdminSession() {
 }
 
 async function initStorage() {
-  // Public products/categories are never read from browser storage or bundled demo data.
-  // Remove legacy caches once so old catalog entries cannot reappear.
+  // Erase only legacy browser copies of the public catalog. User cart/settings are preserved.
   try {
     localStorage.removeItem("foxshop_products_data");
     localStorage.removeItem("foxshop_categories_data");
@@ -227,8 +233,6 @@ async function initStorage() {
     cart = normalizeCart(savedCart ? JSON.parse(savedCart) : []);
   } catch (_) { cart = []; }
 
-  // Wait for D1 before page-specific rendering. Direct product URLs therefore
-  // resolve against exactly the same live catalog as the storefront grid.
   try {
     await getRemoteStoreOnce();
   } catch (remoteErr) {
@@ -238,7 +242,7 @@ async function initStorage() {
       window.__FOXSHOP_STORE_READY__ = true;
       window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
     }
-    console.warn("Remote D1 store unavailable; showing an empty live catalog:", remoteErr);
+    console.error('FoxShop live catalog unavailable:', remoteErr);
   }
 }
 
@@ -880,7 +884,7 @@ async function adminImportBackup(e) {
 }
 
 async function adminResetDefaults() {
-  showToast("بازنشانی به کاتالوگ پیش‌فرض غیرفعال شده است؛ محصولات فقط از Cloudflare D1 مدیریت می‌شوند.", "info");
+  showToast("بازنشانی به کاتالوگ پیش‌فرض غیرفعال است؛ محصولات فقط از Cloudflare D1 مدیریت می‌شوند.", "info");
 }
 
 // Global window assignments for all inline HTML handlers used by the static pages.
