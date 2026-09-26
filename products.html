@@ -3,12 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="canonical" href="https://foxshop.cat/products.html">
-  <meta property="og:url" content="https://foxshop.cat/products.html">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="robots" content="index,follow,max-image-preview:large">
-<title>فروشگاه و کاتالوگ محصولات | FoxShop</title>
+  <title>فروشگاه و کاتالوگ محصولات | FoxShop</title>
   <meta name="description" content="کاتالوگ کامل غذای خشک، کنسرو، پوچ، مکمل‌های درمانی و لوازم گربه در پت‌شاپ FoxShop تبریز با قیمت روز و سفارش در روبیکا و اینستاگرام">
   
   <!-- Tailwind CSS CDN -->
@@ -17,7 +12,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Custom Stylesheet -->
   <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/foxshop-upgrades.css">
 
   <script>
     tailwind.config = {
@@ -389,7 +383,6 @@
     let activeCategory = "all";
 
     function initPage() {
-      if (window.__FOXSHOP_STORE_READY__ !== true) return;
       // Check URL search parameters
       const urlParams = new URLSearchParams(window.location.search);
       const catParam = urlParams.get("category");
@@ -544,6 +537,6 @@
       }).join("");
     }
   </script>
-  <script src="assets/js/storefront.js"></script><script src="assets/js/foxshop-upgrades.js"></script>
+  <script src="assets/js/storefront.js"></script>
 </body>
 </html>
