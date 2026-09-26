@@ -1,4 +1,4 @@
-/* FoxShop additive upgrades: advanced filtering, recommendations, account sync, review UX and quiz v2. */
+/* FoxShop additive upgrades: advanced filtering, recommendations and quiz v2. */
 (() => {
   'use strict';
   if (window.__FOXSHOP_UPGRADES__) return;
@@ -80,16 +80,6 @@
     return `<article class="fox-upgrade-card product-card-item"><div class="fox-upgrade-card-media"><a href="${productUrl(p)}"><img src="${safe(p.image||'')}" alt="${safe(p.name)}" loading="lazy" decoding="async"></a>${discount>0?`<span class="fox-upgrade-discount">${fa(discount)}٪ تخفیف</span>`:''}<button type="button" class="fox-upgrade-heart ${wished?'is-active':''}" onclick="toggleWishlist('${safe(p.id)}',event)" aria-label="علاقه‌مندی"><i class="${wished?'fa-solid':'fa-regular'} fa-heart"></i></button></div><div class="fox-upgrade-card-body"><a href="${productUrl(p)}" class="fox-upgrade-title">${safe(p.name)}</a><div class="fox-upgrade-meta"><span>${safe(x.brand||'برند نامشخص')}</span><span>${safe(x.weight||'')}</span></div><div class="fox-upgrade-price">${money(p.finalPrice)}</div><button type="button" onclick="addToCart('${safe(p.id)}')" class="fox-upgrade-add" ${p.stockStatus==='out_of_stock'?'disabled':''}>${p.stockStatus==='out_of_stock'?'ناموجود':'افزودن به سبد'} <i class="fa-solid fa-cart-plus"></i></button></div></article>`;
   }
 
-  function injectAccountLinks() {
-    document.querySelectorAll('header').forEach(header=>{
-      if(header.querySelector('[data-fox-account-link]')) return;
-      const action = header.querySelector('#cart-trigger-btn')?.parentElement || header.querySelector('.max-w-7xl > div:last-child') || header.querySelector('.max-w-7xl');
-      if(!action) return;
-      const a=document.createElement('a'); a.href='account.html'; a.dataset.foxAccountLink='1'; a.className='fox-account-link-inline'; a.innerHTML='<i class="fa-regular fa-user"></i><span>حساب کاربری</span>'; a.setAttribute('aria-label','حساب کاربری');
-      action.insertBefore(a, action.firstElementChild || null);
-    });
-  }
-
   let catalogBase=null;
   function advancedFilterValues() {
     return {
@@ -151,22 +141,6 @@
     window.renderProductsCatalog();
   }
 
-  function installCustomerSync() {
-    if(!window.fetch || window.__FOX_CUSTOMER_SYNC__) return;
-    window.__FOX_CUSTOMER_SYNC__=true;
-    let timer=null;
-    const syncCart=()=>{
-      clearTimeout(timer); timer=setTimeout(()=>{ const items=Array.isArray(window.cart)?window.cart.map(i=>({id:String(i.id),quantity:Math.min(99,Math.max(1,Math.floor(Number(i.quantity)||1)))})):[]; fetch('/api/account/cart',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({items})}).catch(()=>{}); },450);
-    };
-    const wrap=(name, after)=>{
-      if(typeof window[name]!=='function' || window[name].__foxCustomerWrapped) return;
-      const base=window[name]; const fn=function(...args){ const result=base.apply(this,args); try{after?.(...args);}catch(_){} return result; }; fn.__foxCustomerWrapped=true; window[name]=fn;
-    };
-    wrap('toggleWishlist',(id)=>{ const active=list(LS_WISH).includes(String(id)); fetch('/api/account/favorites',{method:'PUT',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({productId:String(id),active})}).catch(()=>{}); });
-    wrap('addToCart',syncCart); wrap('removeFromCart',syncCart); wrap('updateCartQuantity',syncCart);
-    wrap('orderCartBy',channel=>{ const items=Array.isArray(window.cart)?window.cart.map(i=>({id:String(i.id),quantity:Number(i.quantity)||1})):[]; if(!items.length)return; fetch('/api/account/orders',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({channel,items})}).catch(()=>{}); });
-  }
-
   function injectHomeRecommendations() {
     const anchor=document.getElementById('home-categories-grid'); if(!anchor || document.getElementById('fox-home-recommendations')) return;
     const recs=recommendationProducts(null,4); if(!recs.length)return;
@@ -196,26 +170,8 @@
     let link=document.head.querySelector('link[rel="canonical"]'); if(!link){link=document.createElement('link');link.rel='canonical';document.head.appendChild(link);} link.href=canonical;
     document.title=title; setMetaAttr('name','description',description); setMetaAttr('property','og:title',title); setMetaAttr('property','og:description',description); setMetaAttr('property','og:url',canonical); if(p.image)setMetaAttr('property','og:image',p.image);
     let ld=document.getElementById('fox-product-jsonld'); if(!ld){ld=document.createElement('script');ld.id='fox-product-jsonld';ld.type='application/ld+json';document.head.appendChild(ld);}
-    const d=details(p); const data={'@context':'https://schema.org','@type':'Product',name:p.name,image:p.image?[p.image]:[],description,brand:brandOf(p)?{'@type':'Brand',name:brandOf(p)}:undefined,sku:d.barcode||p.id,offers:{'@type':'Offer',price:Number(p.finalPrice)||0,priceCurrency:'IRR',availability:p.stockStatus==='out_of_stock'?'https://schema.org/OutOfStock':'https://schema.org/InStock',url:canonical},aggregateRating:Number(d.reviewCount)>0&&Number(d.rating)>0?{'@type':'AggregateRating',ratingValue:Number(d.rating),reviewCount:Number(d.reviewCount)}:undefined};
+    const d=details(p); const data={'@context':'https://schema.org','@type':'Product',name:p.name,image:p.image?[p.image]:[],description,brand:brandOf(p)?{'@type':'Brand',name:brandOf(p)}:undefined,sku:d.barcode||p.id,offers:{'@type':'Offer',price:Number(p.finalPrice)||0,priceCurrency:'IRR',availability:p.stockStatus==='out_of_stock'?'https://schema.org/OutOfStock':'https://schema.org/InStock',url:canonical}};
     ld.textContent=JSON.stringify(data);
-  }
-
-  function reviewEnhancement() {
-    const section=document.querySelector('.fox-review-section'), listEl=section?.querySelector('.fox-approved-reviews'); if(!section || !listEl || section.dataset.foxReviewEnhanced) return;
-    section.dataset.foxReviewEnhanced='1';
-    const cards=[...listEl.querySelectorAll('.fox-review-card')];
-    cards.forEach((el,index)=>{ const stars=el.querySelector('.fox-review-stars')?.textContent?.trim()||''; el.dataset.rating=String(Math.min(5,Math.max(1,stars.length))); el.dataset.order=String(index); });
-    const total=cards.length; const counts=[1,2,3,4,5].map(n=>cards.filter(c=>Number(c.dataset.rating)===n).length);
-    const summary=document.createElement('div'); summary.className='fox-review-analytics';
-    summary.innerHTML=`<div class="fox-review-analytics-score"><strong>${cards.length?(counts.reduce((s,c,i)=>s+c*(i+1),0)/cards.length).toFixed(1):'—'}</strong><span>از ۵</span><small>${fa(total)} نظر ثبت‌شده</small></div><div class="fox-review-bars">${[5,4,3,2,1].map(n=>{const c=counts[n-1]||0;const pct=total?Math.round(c/total*100):0;return `<div><span>${fa(n)} ستاره</span><div><i style="width:${pct}%"></i></div><em>${fa(c)}</em></div>`}).join('')}</div>`;
-    const heading=section.querySelector('.fox-review-heading'); heading?.after(summary);
-    const toolbar=document.createElement('div'); toolbar.className='fox-review-toolbar'; toolbar.innerHTML='<span>مرتب‌سازی نظرات</span><div><button type="button" data-sort="new">جدیدترین</button><button type="button" data-sort="high">بالاترین امتیاز</button><button type="button" data-sort="low">کمترین امتیاز</button></div>';
-    listEl.before(toolbar);
-    toolbar.querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{
-      const sorted=[...cards].sort((a,b)=>{ if(btn.dataset.sort==='high'||btn.dataset.sort==='low'){const diff=Number(a.dataset.rating)-Number(b.dataset.rating);return btn.dataset.sort==='high'?-diff:diff;} return Number(a.dataset.order)-Number(b.dataset.order); });
-      sorted.forEach(c=>listEl.appendChild(c)); toolbar.querySelectorAll('button').forEach(b=>b.classList.remove('is-active')); btn.classList.add('is-active');
-    }));
-    toolbar.querySelector('[data-sort="new"]')?.classList.add('is-active');
   }
 
   const quizQuestions=[
@@ -225,7 +181,7 @@
     {key:'need',title:'نیاز اصلی یا دغدغه‌ات چیست؟',options:[['none','نیاز ویژه‌ای ندارد'],['urinary','مراقبت از دستگاه ادراری'],['hairball','کنترل گلوله مو'],['sensitive','گوارش حساس'],['weight','کنترل وزن']]},
     {key:'foodType',title:'چه مدل غذایی بیشتر می‌خواهی؟',options:[['dry','غذای خشک'],['wet','کنسرو/پوچ'],['mixed','ترکیبی'],['all','فرقی ندارد']]},
     {key:'budget',title:'بودجه تقریبی هر خرید؟',options:[['low','اقتصادی'],['mid','متوسط'],['high','پریمیوم']]},
-    {key:'priority',title:'در انتخاب، چه چیزی مهم‌تر است؟',options:[['brand','برند شناخته‌شده'],['ingredient','ترکیبات و کیفیت'],['price','قیمت مناسب'],['rating','امتیاز کاربران']]}
+    {key:'priority',title:'در انتخاب، چه چیزی مهم‌تر است؟',options:[['brand','برند شناخته‌شده'],['ingredient','ترکیبات و کیفیت'],['price','قیمت مناسب']]}
   ];
   function quizScore(p,data){
     const blob=textBlob(p), d=details(p); let score=0; const reasons=[];
@@ -244,7 +200,6 @@
     if(data.priority==='brand' && d.brand){score+=8;reasons.push('اطلاعات برند موجود است');}
     if(data.priority==='ingredient' && d.ingredients){score+=10;reasons.push('اطلاعات ترکیبات ثبت شده');}
     if(data.priority==='price') score += Math.max(0,10-Math.min(9,Math.floor((Number(p.finalPrice)||0)/1000000)));
-    if(data.priority==='rating' && Number(d.rating)>0){score+=Number(d.rating)*3;reasons.push('امتیاز ثبت‌شده دارد');}
     if(Number(p.isBestSeller)) { score+=5; reasons.push('پرفروش'); }
     if(Number(p.isFeatured)) score+=2;
     return {score,reasons};
@@ -269,20 +224,17 @@
   }
 
   function init() {
-    injectAccountLinks();
-    installCustomerSync();
     if(document.getElementById('products-page-root') || document.getElementById('catalog-products-grid')) wrapCatalog();
     if(document.getElementById('quiz-root')) renderQuizV2();
-    if(document.getElementById('product-page-root')) { injectProductRecommendations(); reviewEnhancement(); }
+    if(document.getElementById('product-page-root')) { injectProductRecommendations(); }
     if(document.getElementById('home-categories-grid')) injectHomeRecommendations();
   }
 
   function readyInit() {
-    injectAccountLinks();
     if(window.__FOXSHOP_STORE_READY__===true) setTimeout(init,30);
     window.addEventListener('foxshop:store-ready',()=>setTimeout(init,20),{once:false});
     setTimeout(()=>{try{init();}catch(e){console.error('FoxShop upgrade init error',e);}},250);
-    setTimeout(()=>{try{wrapCatalog();reviewEnhancement();injectProductRecommendations();installCustomerSync();}catch(e){}},900);
+    setTimeout(()=>{try{wrapCatalog();injectProductRecommendations();}catch(e){}},900);
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',readyInit,{once:true}); else readyInit();

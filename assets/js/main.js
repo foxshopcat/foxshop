@@ -59,10 +59,10 @@ if (typeof window !== "undefined") {
 }
 
 // Initialize on DOM Ready
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   initFoxShopPageNavigationLoader();
   initMobileBottomNav();
-  try { await initStorage(); } catch (err) { console.error("Init storage error:", err); }
+  try { initStorage().catch(err => console.error("Init storage error:", err)); } catch (err) { console.error("Init storage error:", err); }
   initHeader();
   initCartUI();
   initSecretAdminTrigger();
@@ -227,44 +227,49 @@ async function checkRemoteAdminSession() {
 }
 
 async function initStorage() {
-  // Public catalog comes from Cloudflare D1 when the API is configured.
+  // Hydrate from the local/default catalog first. The storefront should never wait for D1.
   try {
-    await getRemoteStoreOnce();
-  } catch (remoteErr) {
-    backendReady = false;
-    console.warn("Remote store unavailable; using built-in catalog fallback:", remoteErr);
-    try {
-      const savedCats = localStorage.getItem(LS_CATEGORIES);
-      const defaultCats = (typeof DEFAULT_CATEGORIES !== "undefined") ? [...DEFAULT_CATEGORIES] : [];
-      categories = normalizeCategories(savedCats ? JSON.parse(savedCats) : null);
-      if (!categories.length) categories = normalizeCategories(defaultCats);
+    const savedCats = localStorage.getItem(LS_CATEGORIES);
+    const defaultCats = (typeof DEFAULT_CATEGORIES !== "undefined") ? [...DEFAULT_CATEGORIES] : [];
+    categories = normalizeCategories(savedCats ? JSON.parse(savedCats) : null);
+    if (!categories.length) categories = normalizeCategories(defaultCats);
 
-      const savedProds = localStorage.getItem(LS_PRODUCTS);
-      const defaultProds = (typeof DEFAULT_PRODUCTS !== "undefined") ? [...DEFAULT_PRODUCTS] : [];
-      products = normalizeProducts(savedProds ? JSON.parse(savedProds) : null);
-      if (!products.length) products = normalizeProducts(defaultProds);
+    const savedProds = localStorage.getItem(LS_PRODUCTS);
+    const defaultProds = (typeof DEFAULT_PRODUCTS !== "undefined") ? [...DEFAULT_PRODUCTS] : [];
+    products = normalizeProducts(savedProds ? JSON.parse(savedProds) : null);
+    if (!products.length) products = normalizeProducts(defaultProds);
 
-      const savedSettings = localStorage.getItem(LS_SETTINGS);
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        if (parsedSettings && typeof parsedSettings === "object" && !Array.isArray(parsedSettings)) settings = { ...settings, ...parsedSettings };
-      }
-      customerStories = [];
-    } catch (err) {
-      console.error("Local fallback load error:", err);
-      categories = normalizeCategories(typeof DEFAULT_CATEGORIES !== "undefined" ? DEFAULT_CATEGORIES : []);
-      products = normalizeProducts(typeof DEFAULT_PRODUCTS !== "undefined" ? DEFAULT_PRODUCTS : []);
+    const savedSettings = localStorage.getItem(LS_SETTINGS);
+    if (savedSettings) {
+      const parsedSettings = JSON.parse(savedSettings);
+      if (parsedSettings && typeof parsedSettings === "object" && !Array.isArray(parsedSettings)) settings = { ...settings, ...parsedSettings };
     }
+    customerStories = [];
+  } catch (err) {
+    console.error("Local catalog hydration error:", err);
+    categories = normalizeCategories(typeof DEFAULT_CATEGORIES !== "undefined" ? DEFAULT_CATEGORIES : []);
+    products = normalizeProducts(typeof DEFAULT_PRODUCTS !== "undefined" ? DEFAULT_PRODUCTS : []);
+    customerStories = [];
   }
 
   try {
     const savedCart = localStorage.getItem(LS_CART);
     cart = normalizeCart(savedCart ? JSON.parse(savedCart) : []);
-  } catch { cart = []; }
-  if (!backendReady && typeof window !== 'undefined') {
-    window.__FOXSHOP_STORE_READY__ = true;
-    window.__FOXSHOP_STORE_LOADING__ = false;
-    window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
+  } catch (_) { cart = []; }
+
+  // D1 refresh runs in the background. A slow/unavailable API must not block the UI.
+  try {
+    await getRemoteStoreOnce();
+  } catch (remoteErr) {
+    backendReady = false;
+    if (typeof window !== 'undefined') {
+      window.__FOXSHOP_STORE_LOADING__ = false;
+      if (!window.__FOXSHOP_STORE_READY__) {
+        window.__FOXSHOP_STORE_READY__ = true;
+        window.dispatchEvent(new CustomEvent('foxshop:store-ready'));
+      }
+    }
+    console.warn("Remote store unavailable; keeping local catalog:", remoteErr);
   }
 }
 
@@ -1180,10 +1185,6 @@ function renderAdminPortal() {
           <i class="fa-solid fa-layer-group"></i>
           <span>دسته‌بندی‌ها با تصویر WebP (${toPersianDigits(categories.length)})</span>
         </button>
-        <button onclick="adminSwitchTab('content')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'content' ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
-          <i class="fa-solid fa-comments"></i>
-          <span>نظرات کاربران</span>
-        </button>
         <button onclick="adminSwitchTab('security')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap ${activeAdminTab === 'security' ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
           <i class="fa-solid fa-shield-halved"></i>
           <span>امنیت و پشتیبان‌گیری</span>
@@ -1196,11 +1197,9 @@ function renderAdminPortal() {
       </div>
     </div>
   `;
-  if (activeAdminTab === 'content') queueMicrotask(loadAdminPendingReviews);
 }
 
 function renderAdminTabContent() {
-  if (activeAdminTab === 'content') return renderAdminCustomerContent();
   if (activeAdminTab === "products") {
     return `
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -1600,69 +1599,6 @@ function renderAdminTabContent() {
       </div>
     `;
   }
-}
-
-function renderAdminCustomerContent() {
-  const allReviews = products.flatMap(p => (Array.isArray(p.reviews) ? p.reviews : []).map(r => ({ ...r, productName: p.name })));
-  return `
-    <div class="space-y-5">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
-          <h4 class="font-black text-xs text-slate-800 flex items-center gap-2"><i class="fa-solid fa-star text-amber-500"></i> ثبت نظر تاییدشده توسط مدیر</h4>
-          <p class="text-[10px] text-slate-400 mt-1">برای نظراتی که خارج از فرم عمومی دریافت کرده‌اید.</p>
-          <form onsubmit="adminAddReview(event)" class="space-y-3 mt-4">
-            <select id="admin-review-product" required class="w-full px-3 py-2 rounded-xl border bg-white text-xs">${products.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')}</select>
-            <div class="grid grid-cols-2 gap-2"><input id="admin-review-name" required maxlength="80" placeholder="نام مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"><select id="admin-review-rating" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"><option value="5">۵ ستاره</option><option value="4">۴ ستاره</option><option value="3">۳ ستاره</option><option value="2">۲ ستاره</option><option value="1">۱ ستاره</option></select></div>
-            <input id="admin-review-photo" placeholder="آدرس عکس مشتری (اختیاری)" class="w-full px-3 py-2 rounded-xl border bg-white text-xs" dir="ltr">
-            <textarea id="admin-review-text" rows="4" required maxlength="3000" placeholder="متن نظر مشتری" class="w-full px-3 py-2 rounded-xl border bg-white text-xs"></textarea>
-            <button class="w-full py-2.5 rounded-xl bg-orange-600 text-white font-bold text-xs">ثبت نظر</button>
-          </form>
-        </div>
-        <div class="rounded-2xl p-4 bg-amber-50 border border-amber-200">
-          <div class="flex items-center justify-between gap-2"><div><h4 class="font-black text-xs text-amber-900">نظرات در انتظار بررسی</h4><p class="text-[10px] text-amber-700 mt-1">نظرهای ثبت‌شده توسط کاربران ابتدا اینجا می‌آیند.</p></div><button onclick="loadAdminPendingReviews()" class="px-3 py-2 rounded-xl bg-white border border-amber-200 text-amber-800 text-[10px] font-bold"><i class="fa-solid fa-rotate"></i> بروزرسانی</button></div>
-          <div id="admin-pending-reviews" class="mt-4 space-y-2"><div class="p-3 rounded-xl bg-white/70 text-[10px] text-amber-700">در حال دریافت…</div></div>
-        </div>
-      </div>
-      <div>
-        <div class="flex items-center justify-between"><h4 class="font-black text-xs text-slate-800">نظرات تاییدشده (${toPersianDigits(allReviews.length)})</h4><span class="text-[10px] text-slate-400">فقط نظرات تاییدشده امتیاز محصول را تغییر می‌دهند.</span></div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">${allReviews.length ? allReviews.map(r => `<div class="p-3 rounded-2xl bg-slate-50 border"><div class="flex justify-between gap-2"><b class="text-[11px]">${escapeHtml(r.customerName || 'مشتری')}</b><button onclick="adminDeleteReview('${escapeHtml(r.id)}')" class="text-rose-500"><i class="fa-solid fa-trash"></i></button></div><span class="text-[10px] text-slate-400 block mt-1">${escapeHtml(r.productName || '')} • ${'★'.repeat(Number(r.rating)||5)}</span><p class="text-[10px] text-slate-600 leading-6 mt-1">${escapeHtml(r.reviewText||'')}</p>${r.photoUrl ? `<img src="${escapeHtml(r.photoUrl)}" loading="lazy" class="mt-2 w-20 h-20 object-cover rounded-xl border">` : ''}</div>`).join('') : '<p class="text-[11px] text-slate-400">هنوز نظر تاییدشده‌ای ثبت نشده است.</p>'}</div>
-      </div>
-    </div>`;
-}
-
-async function loadAdminPendingReviews() {
-  const host=document.getElementById('admin-pending-reviews');
-  if(!host) return;
-  try {
-    const data=await apiRequest('/admin/review',{method:'GET'});
-    const pending=(data.reviews||[]).filter(r=>!Number(r.approved));
-    host.innerHTML=pending.length?pending.map(r=>`<div class="p-3 rounded-2xl bg-white border border-amber-200"><div class="flex justify-between gap-2"><div><b class="text-[11px] text-slate-800">${escapeHtml(r.customerName||'مشتری')}</b><span class="block text-[9px] text-slate-400 mt-1">${escapeHtml(r.productName||'محصول')} • ${'★'.repeat(Math.min(5,Math.max(1,Number(r.rating)||5)))}</span></div><span class="text-[9px] text-amber-700">در انتظار</span></div><p class="text-[10px] text-slate-600 leading-6 mt-2">${escapeHtml(r.reviewText||'')}</p><div class="grid grid-cols-2 gap-2 mt-2"><button onclick="adminModerateReview('${escapeHtml(r.id)}',true)" class="py-2 rounded-xl bg-emerald-600 text-white text-[10px] font-black"><i class="fa-solid fa-check"></i> تایید</button><button onclick="adminModerateReview('${escapeHtml(r.id)}',false)" class="py-2 rounded-xl bg-rose-50 text-rose-700 text-[10px] font-black"><i class="fa-solid fa-trash"></i> حذف</button></div></div>`).join(''):'<div class="p-3 rounded-xl bg-white/70 text-[10px] text-amber-700">نظری در انتظار بررسی نیست.</div>';
-  } catch(err) { host.innerHTML=`<div class="p-3 rounded-xl bg-rose-50 text-rose-700 text-[10px]">${escapeHtml(err.message||'خطا در دریافت نظرات')}</div>`; }
-}
-
-async function adminModerateReview(id,approved){
-  try {
-    if(!approved && !confirm('این نظر حذف شود؟')) return;
-    const data=await apiRequest(`/admin/review/${encodeURIComponent(id)}`,{method:'PUT',body:JSON.stringify({approved:!!approved})});
-    applyRemoteStore(data.store); renderAdminPortal(); showToast(approved?'نظر تایید و منتشر شد.':'نظر حذف شد.','success');
-  } catch(err){ showToast(err.message||'خطا در بررسی نظر','error'); }
-}
-
-async function adminAddReview(event) {
-  event.preventDefault();
-  try {
-    const data = await apiRequest('/admin/review', { method:'POST', body:JSON.stringify({
-      productId:document.getElementById('admin-review-product')?.value||'', customerName:document.getElementById('admin-review-name')?.value.trim()||'',
-      rating:Number(document.getElementById('admin-review-rating')?.value)||5, photoUrl:document.getElementById('admin-review-photo')?.value.trim()||'', reviewText:document.getElementById('admin-review-text')?.value.trim()||''
-    })});
-    applyRemoteStore(data.store); renderAdminPortal(); showToast('نظر واقعی مشتری ثبت شد و در صفحه محصول نمایش داده می‌شود.','success');
-  } catch (err) { showToast(err.message||'خطا در ثبت نظر','error'); }
-}
-
-async function adminDeleteReview(id) {
-  if(!confirm('این نظر از سایت حذف شود؟')) return;
-  try { const data=await apiRequest(`/admin/review/${encodeURIComponent(id)}`,{method:'DELETE'}); applyRemoteStore(data.store); renderAdminPortal(); showToast('نظر حذف شد','info'); }
-  catch(err){ showToast(err.message||'خطا در حذف نظر','error'); }
 }
 
 async function adminAddStory(event) {
@@ -2097,8 +2033,6 @@ function openAdminProductEditor(productId) {
             <textarea id="edit-prod-storage" rows="2" placeholder="روش نگهداری" class="sm:col-span-2 px-3 py-2 rounded-xl border bg-white text-xs">${escapeHtml(pd.storage || '')}</textarea>
             <input id="edit-prod-warranty" value="${escapeHtml(pd.warranty || '')}" placeholder="ضمانت" class="sm:col-span-2 px-3 py-2 rounded-xl border bg-white text-xs">
             <textarea id="edit-prod-authenticity" rows="2" placeholder="متن ضمانت اصالت" class="sm:col-span-2 px-3 py-2 rounded-xl border bg-white text-xs">${escapeHtml(pd.authenticity || '')}</textarea>
-            <input id="edit-prod-rating" type="number" min="0" max="5" step="0.1" value="${Number(pd.rating)||0}" placeholder="امتیاز" class="px-3 py-2 rounded-xl border bg-white text-xs">
-            <input id="edit-prod-review-count" type="number" min="0" value="${Number(pd.reviewCount)||0}" placeholder="تعداد نظر" class="px-3 py-2 rounded-xl border bg-white text-xs">
             <input id="edit-prod-sales-count" type="number" min="0" value="${Number(pd.salesCount)||0}" placeholder="تعداد فروش" class="px-3 py-2 rounded-xl border bg-white text-xs">
             <textarea id="edit-prod-more-images" rows="3" placeholder="عکس‌های بیشتر؛ هر آدرس در یک خط" class="sm:col-span-2 px-3 py-2 rounded-xl border bg-white text-xs">${escapeHtml(Array.isArray(pd.moreImages)?pd.moreImages.join('\n'):'')}</textarea>
             <textarea id="edit-prod-related" rows="2" placeholder="شناسه محصولات مرتبط؛ با ویرگول جدا کنید" class="sm:col-span-2 px-3 py-2 rounded-xl border bg-white text-xs">${escapeHtml(Array.isArray(pd.relatedIds)?pd.relatedIds.join(', '):'')}</textarea>
@@ -2196,8 +2130,6 @@ async function handleAdminEditProduct(event, productId) {
           storage: document.getElementById('edit-prod-storage')?.value.trim() || '',
           warranty: document.getElementById('edit-prod-warranty')?.value.trim() || '',
           authenticity: document.getElementById('edit-prod-authenticity')?.value.trim() || '',
-          rating: Number(document.getElementById('edit-prod-rating')?.value) || 0,
-          reviewCount: Number(document.getElementById('edit-prod-review-count')?.value) || 0,
           salesCount: Number(document.getElementById('edit-prod-sales-count')?.value) || 0,
           moreImages: (document.getElementById('edit-prod-more-images')?.value || '').split(/\r?\n/).map(v => v.trim()).filter(Boolean),
           relatedIds: (document.getElementById('edit-prod-related')?.value || '').split(',').map(v => v.trim()).filter(Boolean),
@@ -2357,10 +2289,6 @@ if (typeof window !== "undefined") {
   window.adminExportBackup = adminExportBackup;
   window.adminImportBackup = adminImportBackup;
   window.adminResetDefaults = adminResetDefaults;
-  window.adminAddReview = adminAddReview;
-  window.adminDeleteReview = adminDeleteReview;
-  window.loadAdminPendingReviews = loadAdminPendingReviews;
-  window.adminModerateReview = adminModerateReview;
   window.showToast = showToast;
   window.formatPrice = formatPrice;
   window.toPersianDigits = toPersianDigits;
