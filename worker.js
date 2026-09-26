@@ -12,21 +12,8 @@ import { onRequestPut as adminCategoryUpdate, onRequestDelete as adminCategoryDe
 import { onRequestPost as adminImport } from './functions/api/admin/import.js';
 import { onRequestPost as adminReset } from './functions/api/admin/reset.js';
 import { onRequestPost as adminUploadImage } from './functions/api/admin/upload-image.js';
-import { onRequestPost as adminReviewCreate, onRequestGet as adminReviewList } from './functions/api/admin/review.js';
-import { onRequestDelete as adminReviewDelete, onRequestPut as adminReviewModerate } from './functions/api/admin/review/[id].js';
 import { onRequestPost as adminStoryCreate } from './functions/api/admin/story.js';
-import { onRequestPost as publicReviewCreate } from './functions/api/review.js';
 import { onRequestDelete as adminStoryDelete } from './functions/api/admin/story/[id].js';
-import { onRequestPost as authRequestCode } from './functions/api/auth/request-code.js';
-import { onRequestPost as authVerifyCode } from './functions/api/auth/verify-code.js';
-import { onRequestPost as authPasswordLogin } from './functions/api/auth/password-login.js';
-import { onRequestGet as authMe } from './functions/api/auth/me.js';
-import { onRequestPut as authPassword } from './functions/api/auth/password.js';
-import { onRequestPost as authLogout } from './functions/api/auth/logout.js';
-import { onRequestGet as accountGet, onRequestPut as accountProfileUpdate } from './functions/api/account/index.js';
-import { onRequestPut as accountFavorite } from './functions/api/account/favorites.js';
-import { onRequestPut as accountCart } from './functions/api/account/cart.js';
-import { onRequestPost as accountOrderRequest } from './functions/api/account/orders.js';
 import { bad } from './functions/api/_shared.js';
 
 function contextFor(request, env, executionCtx, params = {}) {
@@ -38,8 +25,6 @@ async function healthHandler(context) {
     ok: true,
     build: 'foxshop-media-edit-v7',
     d1: !!context.env.DB,
-    emailProviderConfigured: Boolean(String(context.env.RESEND_API_KEY || '').trim() && String(context.env.AUTH_EMAIL_FROM || '').trim()),
-    authPepperConfigured: String(context.env.AUTH_PEPPER || '').trim().length >= 24,
     webCrypto: !!globalThis.crypto?.subtle,
     pbkdf2: typeof crypto?.subtle?.deriveBits === 'function',
     pbkdf2Iterations: 100000
@@ -73,8 +58,7 @@ function buildProductSeoHtml(product, requestUrl) {
     description,
     brand: details.brand ? { '@type': 'Brand', name: details.brand } : undefined,
     sku: details.barcode || product.id,
-    offers: { '@type': 'Offer', priceCurrency: 'IRR', price: Number(product.finalPrice) || 0, availability: product.stockStatus === 'out_of_stock' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock', url: canonical },
-    aggregateRating: Number(details.reviewCount) > 0 && Number(details.rating) > 0 ? { '@type':'AggregateRating', ratingValue:Number(details.rating), reviewCount:Number(details.reviewCount) } : undefined
+    offers: { '@type': 'Offer', priceCurrency: 'IRR', price: Number(product.finalPrice) || 0, availability: product.stockStatus === 'out_of_stock' ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock', url: canonical }
   };
   const jsonLd = JSON.stringify(schema).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
   return `<title>${escapeHtmlServer(title)}</title><meta name="description" content="${escapeHtmlServer(description)}"><link rel="canonical" href="${escapeHtmlServer(canonical)}"><meta property="og:title" content="${escapeHtmlServer(title)}"><meta property="og:description" content="${escapeHtmlServer(description)}">${image ? `<meta property="og:image" content="${escapeHtmlServer(image)}">` : ''}<script type="application/ld+json">${jsonLd}</script>`;
@@ -99,18 +83,6 @@ function matchApi(url, request) {
 
   if (p === '/api/health' && method === 'GET') return [healthHandler, {}];
   if (p === '/api/store' && method === 'GET') return [getStore, {}];
-  if (p === '/api/review' && method === 'POST') return [publicReviewCreate, {}];
-  if (p === '/api/auth/request-code' && method === 'POST') return [authRequestCode, {}];
-  if (p === '/api/auth/verify-code' && method === 'POST') return [authVerifyCode, {}];
-  if (p === '/api/auth/login-password' && method === 'POST') return [authPasswordLogin, {}];
-  if (p === '/api/auth/me' && method === 'GET') return [authMe, {}];
-  if (p === '/api/auth/password' && method === 'PUT') return [authPassword, {}];
-  if (p === '/api/auth/logout' && method === 'POST') return [authLogout, {}];
-  if (p === '/api/account' && method === 'GET') return [accountGet, {}];
-  if (p === '/api/account' && method === 'PUT') return [accountProfileUpdate, {}];
-  if (p === '/api/account/favorites' && method === 'PUT') return [accountFavorite, {}];
-  if (p === '/api/account/cart' && method === 'PUT') return [accountCart, {}];
-  if (p === '/api/account/orders' && method === 'POST') return [accountOrderRequest, {}];
   if (p === '/api/admin/login' && method === 'POST') return [adminLogin, {}];
   if (p === '/api/admin/logout' && method === 'POST') return [adminLogout, {}];
   if (p === '/api/admin/me' && method === 'GET') return [adminMe, {}];
@@ -121,8 +93,6 @@ function matchApi(url, request) {
   if (p === '/api/admin/import' && method === 'POST') return [adminImport, {}];
   if (p === '/api/admin/reset' && method === 'POST') return [adminReset, {}];
   if (p === '/api/admin/upload-image' && method === 'POST') return [adminUploadImage, {}];
-  if (p === '/api/admin/review' && method === 'POST') return [adminReviewCreate, {}];
-  if (p === '/api/admin/review' && method === 'GET') return [adminReviewList, {}];
   if (p === '/api/admin/story' && method === 'POST') return [adminStoryCreate, {}];
 
   let m = p.match(/^\/api\/admin\/product\/([^/]+)$/);
@@ -133,9 +103,6 @@ function matchApi(url, request) {
   if (m && method === 'PUT') return [adminCategoryUpdate, { id: decodeURIComponent(m[1]) }];
   if (m && method === 'DELETE') return [adminCategoryDelete, { id: decodeURIComponent(m[1]) }];
 
-  m = p.match(/^\/api\/admin\/review\/([^/]+)$/);
-  if (m && method === 'DELETE') return [adminReviewDelete, { id: decodeURIComponent(m[1]) }];
-  if (m && method === 'PUT') return [adminReviewModerate, { id: decodeURIComponent(m[1]) }];
   m = p.match(/^\/api\/admin\/story\/([^/]+)$/);
   if (m && method === 'DELETE') return [adminStoryDelete, { id: decodeURIComponent(m[1]) }];
 
