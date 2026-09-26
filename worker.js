@@ -1,4 +1,6 @@
 import { onRequestGet as getStore } from './functions/api/store.js';
+import { onRequestGet as getProducts } from './functions/api/products.js';
+import { onRequestGet as getProduct } from './functions/api/product.js';
 import { onRequestGet as getMedia } from './functions/api/media/[key].js';
 import { onRequestPost as adminLogin } from './functions/api/admin/login.js';
 import { onRequestPost as adminLogout } from './functions/api/admin/logout.js';
@@ -83,6 +85,8 @@ function matchApi(url, request) {
 
   if (p === '/api/health' && method === 'GET') return [healthHandler, {}];
   if (p === '/api/store' && method === 'GET') return [getStore, {}];
+  if (p === '/api/products' && method === 'GET') return [getProducts, {}];
+  if (p === '/api/product' && method === 'GET') return [getProduct, {}];
   if (p === '/api/admin/login' && method === 'POST') return [adminLogin, {}];
   if (p === '/api/admin/logout' && method === 'POST') return [adminLogout, {}];
   if (p === '/api/admin/me' && method === 'GET') return [adminMe, {}];

@@ -389,6 +389,7 @@
     let activeCategory = "all";
 
     function initPage() {
+      if (window.__FOXSHOP_STORE_READY__ !== true) return;
       // Check URL search parameters
       const urlParams = new URLSearchParams(window.location.search);
       const catParam = urlParams.get("category");
