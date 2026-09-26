@@ -1,6 +1,4 @@
 import { onRequestGet as getStore } from './functions/api/store.js';
-import { onRequestGet as getProducts } from './functions/api/products.js';
-import { onRequestGet as getProduct } from './functions/api/product.js';
 import { onRequestGet as getMedia } from './functions/api/media/[key].js';
 import { onRequestPost as adminLogin } from './functions/api/admin/login.js';
 import { onRequestPost as adminLogout } from './functions/api/admin/logout.js';
@@ -17,6 +15,88 @@ import { onRequestPost as adminUploadImage } from './functions/api/admin/upload-
 import { onRequestPost as adminStoryCreate } from './functions/api/admin/story.js';
 import { onRequestDelete as adminStoryDelete } from './functions/api/admin/story/[id].js';
 import { bad } from './functions/api/_shared.js';
+
+
+
+function safeArrayWorker(value) {
+  try { const parsed = JSON.parse(String(value ?? '')); return Array.isArray(parsed) ? parsed : []; }
+  catch (_) { return []; }
+}
+
+function apiJsonWorker(payload, status = 200, extraHeaders = {}) {
+  const headers = new Headers({ 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store, max-age=0', ...extraHeaders });
+  return new Response(JSON.stringify(payload), { status, headers });
+}
+
+function cleanProductWorker(row, details = {}) {
+  return {
+    id: String(row?.id ?? ''), name: String(row?.name ?? ''), categoryId: String(row?.categoryId ?? ''),
+    stockStatus: String(row?.stockStatus ?? 'in_stock'), originalPrice: Number(row?.originalPrice) || 0,
+    discountPercent: Number(row?.discountPercent) || 0, finalPrice: Number(row?.finalPrice) || 0,
+    isFeatured: Boolean(row?.isFeatured), isBestSeller: Boolean(row?.isBestSeller), isNew: Boolean(row?.isNew),
+    image: typeof row?.image === 'string' ? row.image : '', imageKey: typeof row?.imageKey === 'string' ? row.imageKey : '',
+    shortDesc: typeof row?.shortDesc === 'string' ? row.shortDesc : '', fullDesc: typeof row?.fullDesc === 'string' ? row.fullDesc : '',
+    details: details || {}
+  };
+}
+
+function normalizeDetailsWorker(d) {
+  if (!d) return {};
+  return {
+    slug: String(d.slug || ''), brand: String(d.brand || ''), weight: String(d.weight || ''), volume: String(d.volume || ''),
+    flavor: String(d.flavor || ''), suitableAge: String(d.suitable_age || ''), goals: String(d.goals || ''),
+    ingredients: String(d.ingredients || ''), nutritionAnalysis: String(d.nutrition_analysis || ''), country: String(d.country || ''),
+    barcode: String(d.barcode || ''), expiryDate: String(d.expiry_date || ''), usageMethod: String(d.usage_method || ''),
+    warranty: String(d.warranty || ''), storage: String(d.storage || ''), authenticity: String(d.authenticity || ''),
+    actualStock: d.actual_stock == null ? null : Number(d.actual_stock), minStock: d.min_stock == null ? null : Number(d.min_stock),
+    restockTime: String(d.restock_time || ''), moreImages: safeArrayWorker(d.more_images_json), faq: safeArrayWorker(d.faq_json),
+    relatedIds: safeArrayWorker(d.related_ids_json), tags: safeArrayWorker(d.tags_json), consumable: Boolean(Number(d.consumable || 0)),
+    rating: 0, reviewCount: 0
+  };
+}
+
+async function getProducts(context) {
+  const db = context.env.DB;
+  if (!db) return apiJsonWorker({ ok:false, error:'اتصال Worker به D1 برقرار نیست.' }, 500);
+  try {
+    const [productRows, categoryRows, detailRows] = await Promise.all([
+      db.prepare(`SELECT id,name,category_id AS categoryId,stock_status AS stockStatus,original_price AS originalPrice,
+        discount_percent AS discountPercent,final_price AS finalPrice,is_featured AS isFeatured,is_best_seller AS isBestSeller,
+        is_new AS isNew,image,image_key AS imageKey,short_desc AS shortDesc,full_desc AS fullDesc
+        FROM products ORDER BY created_at DESC`).all(),
+      db.prepare(`SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories ORDER BY sort_order ASC, created_at ASC`).all().catch(() => ({ results: [] })),
+      db.prepare(`SELECT * FROM product_details`).all().catch(() => ({ results: [] }))
+    ]);
+    const detailMap = {};
+    for (const row of detailRows?.results || []) detailMap[String(row.product_id)] = normalizeDetailsWorker(row);
+    const products = (productRows?.results || []).map(row => cleanProductWorker(row, detailMap[String(row.id)] || {}));
+    return apiJsonWorker({ ok:true, products, categories: categoryRows?.results || [], settings:{}, customerStories:[] });
+  } catch (error) {
+    console.error('FoxShop /api/products error:', error);
+    return apiJsonWorker({ ok:false, error:'خطا در خواندن محصولات از D1' }, 500);
+  }
+}
+
+async function getProduct(context) {
+  const id = String(new URL(context.request.url).searchParams.get('id') || '').trim().slice(0, 120);
+  if (!id) return apiJsonWorker({ ok:false, error:'شناسه محصول نامعتبر است.' }, 400);
+  const db = context.env.DB;
+  if (!db) return apiJsonWorker({ ok:false, error:'اتصال Worker به D1 برقرار نیست.' }, 500);
+  try {
+    const row = await db.prepare(`SELECT id,name,category_id AS categoryId,stock_status AS stockStatus,original_price AS originalPrice,
+      discount_percent AS discountPercent,final_price AS finalPrice,is_featured AS isFeatured,is_best_seller AS isBestSeller,is_new AS isNew,
+      image,image_key AS imageKey,short_desc AS shortDesc,full_desc AS fullDesc FROM products WHERE id=? LIMIT 1`).bind(id).first();
+    if (!row) return apiJsonWorker({ ok:false, error:'محصول پیدا نشد.' }, 404);
+    let details = {};
+    try { details = normalizeDetailsWorker(await db.prepare('SELECT * FROM product_details WHERE product_id=? LIMIT 1').bind(id).first()); } catch (_) {}
+    let category = null;
+    try { category = await db.prepare('SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories WHERE id=? LIMIT 1').bind(String(row.categoryId || '')).first(); } catch (_) {}
+    return apiJsonWorker({ ok:true, product:cleanProductWorker(row, details), category: category || null });
+  } catch (error) {
+    console.error('FoxShop /api/product error:', error);
+    return apiJsonWorker({ ok:false, error:'خطا در خواندن محصول از D1' }, 500);
+  }
+}
 
 function contextFor(request, env, executionCtx, params = {}) {
   return { request, env, params, waitUntil: executionCtx?.waitUntil?.bind(executionCtx), next: executionCtx?.passThroughOnException?.bind(executionCtx) };
