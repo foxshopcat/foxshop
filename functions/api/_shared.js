@@ -5,7 +5,6 @@ const PBKDF2_ITERATIONS = 100000;
 const PBKDF2_SCHEME = `pbkdf2-sha256:${PBKDF2_ITERATIONS}`;
 const PBKDF2_BYTES = 32;
 let extendedSchemaReady = false;
-let extendedSchemaPromise = null;
 
 export function json(data, status = 200, extra = {}) {
   return new Response(JSON.stringify(data), {
@@ -120,10 +119,6 @@ export async function requireJson(request) {
   return request.json().catch(() => null);
 }
 
-export function cleanString(value, max = 100000) {
-  return typeof value === 'string' ? value.trim().slice(0, max) : '';
-}
-
 function safeJson(value, fallback) {
   try {
     const parsed = JSON.parse(String(value ?? ''));
@@ -171,7 +166,8 @@ function normalizeDetails(row) {
 export async function ensureExtendedSchema(db) {
   if (!db || extendedSchemaReady) return;
 
-  // D1 can survive several deployments. Legacy product-detail columns remain compatible.
+  // D1 can survive several deployments. Migrate legacy tables one statement at a time
+  // so one incompatible old column never turns the admin review API into a generic 500.
   const exec = async (sql) => {
     try {
       await db.prepare(sql).run();
@@ -208,6 +204,23 @@ export async function ensureExtendedSchema(db) {
   await exec('CREATE INDEX IF NOT EXISTS idx_product_details_brand ON product_details(brand)');
   await exec(`INSERT OR IGNORE INTO product_details(product_id, created_at, updated_at) SELECT id, datetime('now'), datetime('now') FROM products`);
 
+  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
+    id TEXT PRIMARY KEY, product_id TEXT NOT NULL, customer_name TEXT NOT NULL DEFAULT '', rating INTEGER NOT NULL DEFAULT 5,
+    review_text TEXT NOT NULL DEFAULT '', photo_url TEXT NOT NULL DEFAULT '', approved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT ''
+  )`);
+  for (const [name, type] of [
+    ['product_id', "TEXT NOT NULL DEFAULT ''"], ['customer_name', "TEXT NOT NULL DEFAULT ''"], ['rating', 'INTEGER NOT NULL DEFAULT 5'],
+    ['review_text', "TEXT NOT NULL DEFAULT ''"], ['photo_url', "TEXT NOT NULL DEFAULT ''"], ['approved', 'INTEGER NOT NULL DEFAULT 0'],
+    ['created_at', "TEXT NOT NULL DEFAULT ''"]
+  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
+
+  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
+    id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL DEFAULT '', product_id TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL DEFAULT 0
+  )`);
+  for (const [name, type] of [['fingerprint', "TEXT NOT NULL DEFAULT ''"], ['product_id', "TEXT NOT NULL DEFAULT ''"], ['created_at', 'INTEGER NOT NULL DEFAULT 0']]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
+
   await exec(`CREATE TABLE IF NOT EXISTS customer_stories (
     id TEXT PRIMARY KEY, customer_name TEXT NOT NULL DEFAULT '', cat_name TEXT NOT NULL DEFAULT '', photo_url TEXT NOT NULL DEFAULT '',
     quote TEXT NOT NULL DEFAULT '', approved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT ''
@@ -228,29 +241,77 @@ export async function ensureExtendedSchema(db) {
   await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('authenticityPolicy','"اطلاعات اصالت و مستندات هر محصول فقط در صورت ثبت و قابل ارائه بودن نمایش داده می‌شود."',datetime('now'))`);
   await exec(`INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES('remove_telegram_setting', datetime('now'))`);
   await exec(`DELETE FROM settings WHERE key='telegramUser'`);
-  const legacyMigration = 'remove_bundled_product_catalog_v2';
-  const alreadyClean = await db.prepare('SELECT id FROM foxshop_migrations WHERE id=? LIMIT 1').bind(legacyMigration).first();
-  if (!alreadyClean) {
-    const legacyCatalogIds = ['fox_rc_fit32','fox_rc_kitten','fox_rc_urinary','fox_gimcat_malt','fox_schesir_tuna','fox_wanpy_creamy','fox_bentonite_litter','fox_laser_toy'];
-    await db.prepare(`DELETE FROM products WHERE id IN (${legacyCatalogIds.map(() => '?').join(',')})`).bind(...legacyCatalogIds).run();
-    await db.prepare('INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES(?, datetime(\'now\'))').bind(legacyMigration).run();
-  }
   extendedSchemaReady = true;
 }
 
 
+/**
+ * Minimal, isolated D1 migration for the customer-review feature.
+ * It intentionally does not depend on product_details/settings/customer_stories,
+ * so an older database can still serve /api/admin/review and /api/review safely.
+ */
+export async function ensureReviewSchema(db) {
+  if (!db) throw new Error('D1 binding is missing');
+  const exec = async (sql) => {
+    try {
+      await db.prepare(sql).run();
+    } catch (error) {
+      const message = String(error?.message || error || '');
+      if (/already exists|duplicate column name/i.test(message)) return;
+      throw error;
+    }
+  };
+
+  await exec(`CREATE TABLE IF NOT EXISTS product_reviews (
+    id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL DEFAULT '',
+    customer_name TEXT NOT NULL DEFAULT '',
+    rating INTEGER NOT NULL DEFAULT 5,
+    review_text TEXT NOT NULL DEFAULT '',
+    photo_url TEXT NOT NULL DEFAULT '',
+    approved INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT ''
+  )`);
+  for (const [name, type] of [
+    ['product_id', "TEXT NOT NULL DEFAULT ''"],
+    ['customer_name', "TEXT NOT NULL DEFAULT ''"],
+    ['rating', 'INTEGER NOT NULL DEFAULT 5'],
+    ['review_text', "TEXT NOT NULL DEFAULT ''"],
+    ['photo_url', "TEXT NOT NULL DEFAULT ''"],
+    ['approved', 'INTEGER NOT NULL DEFAULT 0'],
+    ['created_at', "TEXT NOT NULL DEFAULT ''"]
+  ]) await exec(`ALTER TABLE product_reviews ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_product_reviews_product ON product_reviews(product_id, approved)');
+
+  await exec(`CREATE TABLE IF NOT EXISTS review_submission_log (
+    id TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL DEFAULT '',
+    product_id TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL DEFAULT 0
+  )`);
+  for (const [name, type] of [
+    ['fingerprint', "TEXT NOT NULL DEFAULT ''"],
+    ['product_id', "TEXT NOT NULL DEFAULT ''"],
+    ['created_at', 'INTEGER NOT NULL DEFAULT 0']
+  ]) await exec(`ALTER TABLE review_submission_log ADD COLUMN ${name} ${type}`);
+  await exec('CREATE INDEX IF NOT EXISTS idx_review_submission_fingerprint ON review_submission_log(fingerprint, created_at)');
+}
+
 export async function getStore(db) {
   await ensureExtendedSchema(db);
-  const [cats, prods, details, stories, rows] = await Promise.all([
+  const [cats, prods, details, reviews, stories, rows] = await Promise.all([
     db.prepare('SELECT id,name,slug,image,image_key AS imageKey,icon,color,sort_order AS sortOrder FROM categories ORDER BY sort_order ASC, created_at ASC').all(),
     db.prepare('SELECT id,name,category_id AS categoryId,stock_status AS stockStatus,original_price AS originalPrice,discount_percent AS discountPercent,final_price AS finalPrice,is_featured AS isFeatured,is_best_seller AS isBestSeller,is_new AS isNew,image,image_key AS imageKey,short_desc AS shortDesc,full_desc AS fullDesc FROM products ORDER BY created_at DESC').all(),
     db.prepare('SELECT * FROM product_details').all(),
+    db.prepare('SELECT id,product_id AS productId,customer_name AS customerName,rating,review_text AS reviewText,photo_url AS photoUrl,created_at AS createdAt FROM product_reviews WHERE approved=1 ORDER BY created_at DESC').all(),
     db.prepare('SELECT id,customer_name AS customerName,cat_name AS catName,photo_url AS photoUrl,quote,created_at AS createdAt FROM customer_stories WHERE approved=1 ORDER BY created_at DESC').all(),
     db.prepare('SELECT key,value FROM settings').all()
   ]);
 
   const detailsByProduct = {};
   for (const row of details?.results || []) detailsByProduct[row.product_id] = normalizeDetails(row);
+  const reviewsByProduct = {};
+  for (const row of reviews?.results || []) (reviewsByProduct[row.productId] ||= []).push(row);
 
   const settings = {};
   for (const r of rows?.results || []) {
@@ -263,7 +324,8 @@ export async function getStore(db) {
     isFeatured: Boolean(p.isFeatured),
     isBestSeller: Boolean(p.isBestSeller),
     isNew: Boolean(p.isNew),
-    details: detailsByProduct[p.id] || normalizeDetails(null)
+    details: detailsByProduct[p.id] || normalizeDetails(null),
+    reviews: reviewsByProduct[p.id] || []
   }));
 
   return {
@@ -272,6 +334,10 @@ export async function getStore(db) {
     settings,
     customerStories: stories?.results || []
   };
+}
+
+export function cleanString(value, max = 100000) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
 export function cleanJsonArray(value, maxItems = 40, maxItemLength = 2000) {
@@ -309,8 +375,8 @@ export function buildProductDetails(body = {}) {
     warranty: cleanString(body.warranty, 500),
     storage: cleanString(body.storage, 1200),
     authenticity: cleanString(body.authenticity, 1000),
-    actualStock: actualStock,
-    minStock: minStock,
+    actualStock,
+    minStock,
     restockTime: cleanString(body.restockTime, 160),
     rating: Math.min(5, Math.max(0, Number(body.rating) || 0)),
     reviewCount: Math.max(0, Math.floor(Number(body.reviewCount) || 0)),
@@ -347,5 +413,3 @@ export async function upsertProductDetails(db, productId, details) {
       JSON.stringify(details.tags), details.consumable ? 1 : 0, now, now
     ).run();
 }
-
-
