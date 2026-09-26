@@ -10,6 +10,7 @@ export async function onRequestPost(context) {
   const now = new Date().toISOString();
   const batch = [
     db.prepare('DELETE FROM customer_stories'),
+    db.prepare('DELETE FROM product_reviews'),
     db.prepare('DELETE FROM product_details'),
     db.prepare('DELETE FROM products'),
     db.prepare('DELETE FROM categories')
