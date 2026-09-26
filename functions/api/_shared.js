@@ -228,19 +228,13 @@ export async function ensureExtendedSchema(db) {
   await exec(`INSERT OR IGNORE INTO settings(key,value,updated_at) VALUES ('authenticityPolicy','"اطلاعات اصالت و مستندات هر محصول فقط در صورت ثبت و قابل ارائه بودن نمایش داده می‌شود."',datetime('now'))`);
   await exec(`INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES('remove_telegram_setting', datetime('now'))`);
   await exec(`DELETE FROM settings WHERE key='telegramUser'`);
-
-  // One-time cleanup of the original bundled demo catalog. After this migration,
-  // the public store contains only products created/imported through the admin panel.
-  const legacyCleanup = await db.prepare("SELECT id FROM foxshop_migrations WHERE id=? LIMIT 1").bind('remove_bundled_product_catalog_v1').first();
-  if (!legacyCleanup) {
-    const legacyCatalogIds = [
-      'fox_rc_fit32', 'fox_rc_kitten', 'fox_rc_urinary', 'fox_gimcat_malt',
-      'fox_schesir_tuna', 'fox_wanpy_creamy', 'fox_bentonite_litter', 'fox_laser_toy'
-    ];
+  const legacyMigration = 'remove_bundled_product_catalog_v2';
+  const alreadyClean = await db.prepare('SELECT id FROM foxshop_migrations WHERE id=? LIMIT 1').bind(legacyMigration).first();
+  if (!alreadyClean) {
+    const legacyCatalogIds = ['fox_rc_fit32','fox_rc_kitten','fox_rc_urinary','fox_gimcat_malt','fox_schesir_tuna','fox_wanpy_creamy','fox_bentonite_litter','fox_laser_toy'];
     await db.prepare(`DELETE FROM products WHERE id IN (${legacyCatalogIds.map(() => '?').join(',')})`).bind(...legacyCatalogIds).run();
-    await exec(`INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES('remove_bundled_product_catalog_v1', datetime('now'))`);
+    await db.prepare('INSERT OR IGNORE INTO foxshop_migrations(id, applied_at) VALUES(?, datetime(\'now\'))').bind(legacyMigration).run();
   }
-
   extendedSchemaReady = true;
 }
 

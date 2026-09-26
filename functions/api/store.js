@@ -7,7 +7,10 @@ export async function onRequestGet(context) {
       'cdn-cache-control': 'no-store'
     });
   } catch (error) {
-    console.error(error);
-    return json({ ok: false, error: 'خطا در خواندن دیتابیس فروشگاه' }, 500, { 'cache-control': 'no-store' });
+    console.error('FoxShop /api/store error:', error);
+    return json({ ok: false, error: 'خطا در خواندن دیتابیس فروشگاه' }, 500, {
+      'cache-control': 'no-store',
+      'cdn-cache-control': 'no-store'
+    });
   }
 }
